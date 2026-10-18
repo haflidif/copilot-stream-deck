@@ -1,0 +1,9 @@
+node_modules/
+dist/
+com.haflidif.copilot.sdPlugin/bin/
+com.haflidif.copilot.sdPlugin/logs/
+.github/extensions/stream-deck/bridge.mjs
+*.streamDeckPlugin
+*.log
+.env
+.env.*

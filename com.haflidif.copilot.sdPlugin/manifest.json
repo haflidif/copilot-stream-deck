@@ -1,0 +1,45 @@
+{
+  "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
+  "UUID": "com.haflidif.copilot",
+  "Name": "Copilot Companion",
+  "Author": "haflidif",
+  "Description": "Unofficial local companion for the GitHub Copilot app. Browse projects and sessions with animated status tiles.",
+  "Version": "0.1.0.0",
+  "SDKVersion": 2,
+  "Software": {
+    "MinimumVersion": "6.6"
+  },
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Nodejs": {
+    "Version": "20"
+  },
+  "CodePath": "bin/plugin.mjs",
+  "Icon": "imgs/plugin",
+  "Category": "Copilot Companion",
+  "CategoryIcon": "imgs/category",
+  "PropertyInspectorPath": "ui/settings.html",
+  "Actions": [
+    {
+      "UUID": "com.haflidif.copilot.dashboard",
+      "Name": "Dashboard tile (15-key)",
+      "Icon": "imgs/action",
+      "Tooltip": "Place on all 15 keys of a dedicated profile. The physical position determines the tile.",
+      "Controllers": [
+        "Keypad"
+      ],
+      "SupportedInMultiActions": false,
+      "UserTitleEnabled": false,
+      "States": [
+        {
+          "Image": "imgs/key",
+          "ShowTitle": false
+        }
+      ]
+    }
+  ]
+}

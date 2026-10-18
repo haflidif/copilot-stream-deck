@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src ws://127.0.0.1:*; style-src 'self'; script-src 'self'">
+  <link rel="stylesheet" href="settings.css">
+  <title>Copilot Companion</title>
+</head>
+<body>
+  <h2>Copilot Companion</h2>
+  <p class="muted">Unofficial preview for the 15-key Stream Deck.</p>
+  <p>Create a dedicated 5-by-3 profile and place a <strong>Dashboard tile</strong> on every key. Navigation and animation are shared across the keys.</p>
+  <div id="status" role="status">Connecting to plugin...</div>
+  <label for="bridge">Bridge session ID (blank selects newest)</label>
+  <input id="bridge" type="text" maxlength="100" autocomplete="off" spellcheck="false">
+  <label class="checkbox"><input id="motion" type="checkbox"> Reduce motion</label>
+  <div class="buttons"><button id="save">Save and reconnect</button><button id="refresh">Refresh status</button></div>
+  <h3>Connection scope</h3>
+  <p id="scope">No bridge attached.</p>
+  <pre id="error" role="alert"></pre>
+  <h3>Before using it</h3>
+  <p>Build this repository, then load the Stream Deck extension in the Copilot app. Keep that session open. The bridge uses an authenticated local connection; no GitHub token is entered here.</p>
+  <p>Projects and session status come from the app. Model, context, credits and MCP controls apply only to the attached bridge session. Favorites are saved by this plugin, not synced with app pins. Voice is not connected yet.</p>
+  <script src="settings.js"></script>
+</body>
+</html>
