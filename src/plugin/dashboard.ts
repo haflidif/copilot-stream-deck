@@ -1,6 +1,8 @@
-import type { Activity, Command, Snapshot } from "../shared/protocol.js";
+import type { Activity, Command, SessionDetails, Snapshot } from "../shared/protocol.js";
+import type { CompanionRequest, VoiceState } from "./companion.js";
+import { icons } from "./icons.js";
 
-export type Icon = "plus" | "folder" | "chat" | "star" | "grid" | "mic" | "back" | "home" | "left" | "right" | "refresh" | "open" | "check" | "error" | "session";
+export type Icon = keyof typeof icons;
 export interface Tile {
   label: string;
   icon?: Icon;
@@ -8,18 +10,22 @@ export interface Tile {
   activity?: Activity;
   disabled?: boolean;
   selected?: boolean;
+  gauge?: number;
+  recording?: boolean;
   action?: Action;
 }
 type View =
   | { type: "home"; page: number }
   | { type: "projects"; page: number }
-  | { type: "sessions"; page: number; projectId?: string; favorites?: boolean; chats?: boolean }
-  | { type: "session"; page: number; id: string }
-  | { type: "mcp"; page: number }
-  | { type: "confirm"; page: number; command: Command; label: string };
+  | { type: "sessions"; page: number; projectId?: string; favorites?: boolean; chats?: boolean; attention?: boolean }
+  | { type: "session"; page: number; id: string; follow?: boolean }
+  | { type: "mcp"; page: number; sessionId: string }
+  | { type: "confirm"; page: number; command: Command; label: string; sessionId?: string }
+  | { type: "question"; page: number };
 type Action =
   | { type: "view"; view: View }
-  | { type: "back" | "previous" | "next" | "refresh" | "home" }
+  | { type: "back" | "previous" | "next" | "refresh" | "home" | "voice" }
+  | { type: "companion"; request: CompanionRequest }
   | { type: "favorite"; id: string }
   | { type: "command"; command: Command };
 
@@ -29,9 +35,71 @@ export class Dashboard {
   snapshot?: Snapshot;
   error?: string;
   busy = false;
+  loadingDetails = false;
+  savedDetails?: SessionDetails;
+  voice?: VoiceState;
+  private openRequestedId?: string;
   favorites = new Set<string>();
 
-  constructor(private execute: (command: Command) => Promise<void>, private persist: (ids: string[]) => Promise<void>) {}
+  constructor(
+    private execute: (command: Command) => Promise<void>,
+    private persist: (ids: string[]) => Promise<void>,
+    private send: (request: CompanionRequest) => Promise<void> = async () => { throw new Error("Companion API not connected"); },
+  ) {}
+
+  /** Home tile for a question the app's active session is waiting on. */
+  private questionTile(fallback: Tile): Tile {
+    const question = this.voice?.question;
+    if (!question || !this.voice?.activeSessionId) return fallback;
+    return {
+      label: "Answer question", icon: "attention", activity: "attention",
+      value: question.choices.length ? String(question.choices.length) : undefined,
+      action: { type: "view", view: { type: "question", page: 0 } },
+    };
+  }
+
+  get targetSessionId(): string | undefined {
+    return this.view.type === "session" ? this.sessionViewId(this.view)
+      : this.view.type === "mcp" || this.view.type === "confirm" ? this.view.sessionId : undefined;
+  }
+
+  get detailsMessage(): string | undefined {
+    if (this.view.type !== "session") return;
+    const id = this.sessionViewId(this.view);
+    if (this.snapshot && id !== this.snapshot.bridgeSessionId && this.voice?.active?.id === id) {
+      return "Live values from the Copilot app for the session open in its window. MCP controls still need this session's bridge.";
+    }
+    if (this.loadingDetails) return "Loading details for the selected session.";
+    if (this.snapshot && id !== this.snapshot.bridgeSessionId && this.savedDetails?.id === id) {
+      return `Session is not running. Showing the last saved values${this.savedDetails.updatedAt ? ` from ${new Date(this.savedDetails.updatedAt).toLocaleString()}` : ""}, read from its local session history. MCP controls need the session to be running.`;
+    }
+    if (this.snapshot && id !== this.snapshot.bridgeSessionId) {
+      return "No live bridge for this session. Copilot can stop an idle session's runtime and its extensions while keeping the conversation visible. Switching tabs does not guarantee a runtime starts. Session metrics and MCP controls require that runtime; app-wide activity status is still available. This connector cannot start it automatically.";
+    }
+    return this.snapshot?.capabilities.details.reason;
+  }
+
+  /** Dictation always goes to the session that is active in the app window. */
+  voiceTile(sessionId?: string): Tile {
+    const voice = this.voice;
+    if (!voice) return { label: "Voice: turn on", icon: "mic", disabled: true };
+    if (!voice.available) return { label: "Voice unavailable", icon: "mic", disabled: true };
+    if (sessionId && voice.activeSessionId !== sessionId) return { label: "Open to talk", icon: "mic", disabled: true };
+    return {
+      label: voice.recording ? "Listening" : voice.mode === "push_to_talk" ? "Hold to talk" : "Tap to talk",
+      icon: "mic", recording: voice.recording, action: { type: "voice" },
+    };
+  }
+
+  isVoice(index: number): boolean {
+    const tile = this.tiles()[index];
+    return tile?.action?.type === "voice" && !tile.disabled;
+  }
+
+  /** "Active session" follows the session open in the app window, falling back to the bridge session. */
+  private sessionViewId(view: { id: string; follow?: boolean }): string {
+    return view.follow ? this.voice?.activeSessionId ?? this.snapshot?.bridgeSessionId ?? view.id : view.id;
+  }
 
   private go(view: View): void {
     this.history.push(this.view);
@@ -53,12 +121,16 @@ export class Dashboard {
         viewTile("Projects", "folder", { type: "projects", page: 0 }, !data.capabilities.projects.available),
         viewTile("Sessions", "chat", { type: "sessions", page: 0 }, !data.capabilities.sessions.available),
         viewTile("Favorites", "star", { type: "sessions", page: 0, favorites: true }, !data.capabilities.sessions.available),
-        viewTile("MCP servers", "grid", { type: "mcp", page: 0 }, !data.capabilities.mcp.available),
+        viewTile("MCP servers", "grid", { type: "mcp", page: 0, sessionId: data.bridgeSessionId }, !data.capabilities.mcp.available),
         viewTile("Chats", "chat", { type: "sessions", page: 0, chats: true }, !data.capabilities.sessions.available),
-        viewTile("This session", "session", { type: "session", id: data.bridgeSessionId, page: 0 }),
-        unavailable("Voice: no API", "mic"),
-        unavailable("App pins: no API", "star"),
-        { label: "Live sessions", value: String(data.sessions.filter((row) => row.activity === "working").length) },
+        viewTile(this.voice?.activeSessionId ? "Active session" : "This session", "session", { type: "session", id: data.bridgeSessionId, follow: true, page: 0 }),
+        this.voiceTile(),
+        {
+          ...viewTile("Needs you", "attention", { type: "sessions", page: 0, attention: true }, !data.capabilities.sessions.available),
+          value: String(data.sessions.filter((row) => row.activity === "attention").length),
+          activity: data.sessions.some((row) => row.activity === "attention") ? "attention" : undefined,
+        },
+        this.questionTile({ label: "Live sessions", value: String(data.sessions.filter((row) => row.activity === "working").length) }),
       ];
     } else if (this.view.type === "projects") {
       items = data.projects.map((project) => viewTile(project.name, "folder", { type: "sessions", projectId: project.id, page: 0 }));
@@ -66,38 +138,55 @@ export class Dashboard {
       const view = this.view;
       items = data.sessions
         .filter((session) => (!view.projectId || session.projectId === view.projectId) &&
-          (!view.favorites || this.favorites.has(session.id)) && (!view.chats || session.kind === "chat"))
+          (!view.favorites || this.favorites.has(session.id)) && (!view.chats || session.kind === "chat") &&
+          (!view.attention || session.activity === "attention"))
         .map((session) => ({
           ...viewTile(session.name, "session", { type: "session", id: session.id, page: 0 }),
           value: initials(session.name), activity: session.activity,
         }));
     } else if (this.view.type === "session") {
-      const id = this.view.id;
+      const id = this.sessionViewId(this.view);
       const session = data.sessions.find((row) => row.id === id);
-      const details = id === data.bridgeSessionId ? data.details : undefined;
       const own = id === data.bridgeSessionId;
+      const appLive = !own && this.voice?.active?.id === id ? this.voice.active : undefined;
+      const saved = !own && !appLive && this.savedDetails?.id === id ? this.savedDetails : undefined;
+      const details = own ? data.details : appLive ?? saved;
+      const missing = this.loadingDetails && !appLive ? "Loading" : own || saved || appLive ? "Unavailable" : "No bridge";
+      const requested = this.openRequestedId === id;
       items = [
-        { label: "Open in app", icon: "open", disabled: !data.capabilities.openSession.available || !session, action: { type: "command", command: { type: "openSession", id } } },
+        { label: requested ? "Open requested" : "Open in app", icon: "open", disabled: requested || !data.capabilities.openSession.available || !session, action: { type: "command", command: { type: "openSession", id } } },
         { label: this.favorites.has(id) ? "Unfavorite" : "Favorite", icon: "star", selected: this.favorites.has(id), action: { type: "favorite", id } },
-        { label: "Model", value: details?.model ?? "No data" },
-        { label: "Reasoning", value: details ? details.reasoning ?? "Default" : "No data", disabled: !details },
-        { label: "Context used", value: details?.contextPercent === undefined ? "No data" : `${details.contextPercent.toFixed(0)}%` },
-        { label: "Context limit", value: details?.contextLimit === undefined ? "No data" : formatTokens(details.contextLimit) },
-        { label: details?.creditsStatus === "complete" ? "AI credits" : "Credits (partial)", value: details?.aiCredits === undefined ? "No data" : details.aiCredits.toFixed(1) },
-        viewTile("MCP servers", "grid", { type: "mcp", page: 0 }, !own || !data.capabilities.mcp.available),
-        unavailable("Voice: no API", "mic"),
-        { label: own ? "Attached here" : "Open app for details", icon: "session", activity: session?.activity ?? "unknown" },
+        { label: "Model", value: details?.model ?? missing },
+        { label: "Reasoning", value: details ? details.reasoning ?? "Default" : missing, disabled: !details },
+        { label: "Context used", value: details?.contextPercent === undefined ? missing : `${details.contextPercent.toFixed(0)}%`, gauge: details?.contextPercent },
+        { label: "Context limit", value: details?.contextLimit === undefined ? missing : formatTokens(details.contextLimit) },
+        { label: details?.creditsStatus === "complete" ? "AI credits" : details ? "Credits (partial)" : "AI credits", value: details?.aiCredits === undefined ? missing : details.aiCredits.toFixed(1) },
+        viewTile("MCP servers", "grid", { type: "mcp", page: 0, sessionId: id }, !own || !data.capabilities.mcp.available),
+        this.voiceTile(id),
+        { label: this.loadingDetails && !appLive ? "Loading details" : own ? "Session status" : appLive ? "Live from app" : saved ? "Saved values" : "Bridge not running", icon: "session", activity: session?.activity ?? "unknown" },
       ];
     } else if (this.view.type === "mcp") {
-      items = data.mcp.map((server) => ({
+      const sessionId = this.view.sessionId;
+      items = data.bridgeSessionId !== sessionId ? [] : data.mcp.map((server) => ({
         label: server.name, icon: "grid",
         value: server.enabled ? "ON" : "OFF",
         selected: server.enabled,
         activity: server.status === "failed" ? "error" : undefined,
         action: { type: "view", view: { type: "confirm", page: 0,
-          command: { type: "setMcp", name: server.name, enabled: !server.enabled },
+          command: { type: "setMcp", name: server.name, enabled: !server.enabled }, sessionId,
           label: `${server.enabled ? "Disable" : "Enable"} ${server.name}?` } },
       }));
+    } else if (this.view.type === "question") {
+      const question = this.voice?.question;
+      const sessionId = this.voice?.activeSessionId;
+      items = !question || !sessionId ? [{ label: "No question waiting", icon: "check", disabled: true }] : [
+        ...question.choices.map((label, choiceIndex): Tile => ({
+          label, value: String(choiceIndex + 1), activity: "attention",
+          action: { type: "companion", request: { type: "question.answer", sessionId, questionToken: question.token, choiceIndex } },
+        })),
+        ...(question.custom ? [{ label: "Type answer", icon: "chat" as Icon,
+          action: { type: "companion" as const, request: { type: "question.focus_custom" as const, sessionId, questionToken: question.token } } }] : []),
+      ];
     } else if (this.view.type === "confirm") {
       items = [
         { label: "Confirm", icon: "check", action: { type: "command", command: this.view.command } },
@@ -124,6 +213,7 @@ export class Dashboard {
     if (!tile || tile.disabled || !tile.action) return;
     this.error = undefined;
     const action = tile.action;
+    if (action.type !== "command" && action.type !== "favorite" && action.type !== "refresh") this.openRequestedId = undefined;
     switch (action.type) {
       case "home": this.view = { type: "home", page: 0 }; this.history = []; break;
       case "back": this.view = this.history.pop() ?? { type: "home", page: 0 }; break;
@@ -131,6 +221,16 @@ export class Dashboard {
       case "next": this.view.page++; break;
       case "view": this.go(action.view); break;
       case "refresh": return "refresh";
+      case "voice": return;
+      case "companion":
+        this.busy = true;
+        try {
+          await this.send(action.request);
+          if (this.view.type === "question") this.view = this.history.pop() ?? { type: "home", page: 0 };
+        } finally {
+          this.busy = false;
+        }
+        return;
       case "favorite": {
         const next = new Set(this.favorites);
         if (next.has(action.id)) next.delete(action.id); else next.add(action.id);
@@ -142,6 +242,7 @@ export class Dashboard {
         this.busy = true;
         try {
           await this.execute(action.command);
+          if (action.command.type === "openSession") this.openRequestedId = action.command.id;
           if (this.view.type === "confirm") this.view = this.history.pop() ?? { type: "home", page: 0 };
           return "refresh";
         } finally {

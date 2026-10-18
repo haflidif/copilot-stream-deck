@@ -1,9 +1,9 @@
 import { createServer, type IncomingMessage } from "node:http";
 import { randomBytes, timingSafeEqual } from "node:crypto";
-import { mkdir, writeFile, rm } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { bridgeDirectory } from "../shared/paths.js";
-import { parseCommand, type BridgeDescriptor, type Command, type Snapshot } from "../shared/protocol.js";
+import { bridgeDirectory, isProcessAlive } from "../shared/paths.js";
+import { parseCommand, parseDescriptor, type BridgeDescriptor, type Command, type Snapshot } from "../shared/protocol.js";
 
 export interface Provider {
   snapshot(): Promise<Snapshot>;
@@ -61,6 +61,7 @@ export async function startBridge(provider: Provider, sessionId: string, directo
   const path = join(directory, `${sessionId}.json`);
   try {
     await mkdir(directory, { recursive: true, mode: 0o700 });
+    await pruneStale(directory);
     await writeFile(path, JSON.stringify(descriptor), { mode: 0o600 });
   } catch (error) {
     server.close();
@@ -71,9 +72,25 @@ export async function startBridge(provider: Provider, sessionId: string, directo
     async close() {
       server.closeAllConnections();
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-      await rm(path, { force: true });
+      const current = await readFile(path, "utf8").catch(() => "");
+      if (current.includes(token)) await rm(path, { force: true });
     },
   };
+}
+
+async function pruneStale(directory: string): Promise<void> {
+  for (const name of await readdir(directory)) {
+    if (!/^[a-zA-Z0-9-]+\.json$/.test(name)) continue;
+    const path = join(directory, name);
+    try {
+      const { pid } = parseDescriptor(JSON.parse(await readFile(path, "utf8")));
+      if (isProcessAlive(pid)) continue;
+    } catch {
+      // Unreadable or malformed descriptors are left for the owner to rewrite.
+      continue;
+    }
+    await rm(path, { force: true });
+  }
 }
 
 async function body(request: IncomingMessage): Promise<string> {

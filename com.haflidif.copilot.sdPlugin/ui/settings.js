@@ -27,7 +27,7 @@ window.connectElgatoStreamDeckSocket = (port, uuid, registerEvent, info, actionI
     element("scope").textContent = data.bridgeSessionId
       ? `${data.attachedSession || "Attached session"} (${data.bridgeSessionId})`
       : "No bridge attached.";
-    element("error").textContent = data.error || "";
+    element("error").textContent = [data.error, data.detailsMessage].filter(Boolean).join("\n");
     if (!initialized) {
       element("bridge").value = data.settings.bridgeSessionId || "";
       element("motion").checked = data.settings.reducedMotion === true;

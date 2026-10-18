@@ -27,13 +27,13 @@ export function joinedSession(): JoinedSession {
     on: () => () => {},
     rpc: {
       tools: {
-        getCurrentMetadata: async () => ({ tools: ["list_projects", "get_sessions_status", "navigate_to", "create_session"].map((name) => ({ name })) }),
+        getCurrentMetadata: async () => ({ tools: ["list_projects", "get_sessions_status", "list_sessions_and_chats", "create_session"].map((name) => ({ name })) }),
         execute: async ({ name }) => ({
           resultType: "success",
           textResultForLlm: name === "list_projects" ? 'Found 1 project(s):\n[{"id":"p1","name":"Example"}]'
             : name === "get_sessions_status" ? JSON.stringify({ sessions: [
               { id: "attached", name: "Example session", project_id: "p1", activity: { status: "busy" } },
-            ] }) : "Done",
+            ] }) : name === "list_sessions_and_chats" ? JSON.stringify([{ id: "attached", app_url: "ghapp://sessions/attached" }]) : "Done",
         }),
       },
       model: { getCurrent: async () => ({ modelId: "auto", reasoningEffort: "high", contextTier: "default" }) },

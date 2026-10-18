@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "description": "An unofficial Elgato Stream Deck companion for the GitHub Copilot app.",
-  "engines": { "node": ">=20.19.0" },
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "scripts": {
     "build": "node scripts/build.mjs",
     "preview": "node --import tsx scripts/preview.ts",
@@ -13,18 +15,21 @@
     "validate": "npm run typecheck && npm test",
     "plugin:validate": "streamdeck validate com.haflidif.copilot.sdPlugin",
     "plugin:pack": "streamdeck pack com.haflidif.copilot.sdPlugin --output dist --force",
-    "plugin:link": "streamdeck link com.haflidif.copilot.sdPlugin"
+    "plugin:link": "streamdeck link com.haflidif.copilot.sdPlugin",
+    "extension:install": "npm run build && node scripts/install-extension.mjs",
+    "icons": "node scripts/gen-icons.mjs"
   },
   "dependencies": {
     "@elgato/streamdeck": "2.1.2"
   },
   "devDependencies": {
     "@elgato/cli": "1.10.2",
+    "@primer/octicons": "^19.40.0",
     "@types/node": "^22.0.0",
+    "@types/ws": "^8.18.0",
     "esbuild": "0.28.2",
     "tsx": "^4.20.0",
     "typescript": "5.9.3",
-    "@types/ws": "^8.18.0",
     "ws": "^8.18.0"
   }
 }

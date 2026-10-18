@@ -15,6 +15,22 @@ test("compiled plugin registers, renders 15 keys, navigates, animates and stops 
   const root = await mkdtemp(join(tmpdir(), "copilot-deck-plugin-test-"));
   const directory = join(root, "CopilotStreamDeck", "bridges");
   const commands: Command[] = [];
+  const otherCommands: Command[] = [];
+  const events = new EventEmitter();
+  let otherHold: Promise<void> | undefined;
+  let otherStarted = false;
+  const otherBridge = await startBridge({
+    snapshot: async () => {
+      otherStarted = true;
+      events.emit("message");
+      await otherHold;
+      const data = snapshot();
+      data.bridgeSessionId = "other";
+      data.details = { id: "other", name: "Other session", model: "other-model" };
+      return data;
+    },
+    command: async (command) => { otherCommands.push(command); },
+  }, "other", directory);
   const bridge = await startBridge({ snapshot: async () => snapshot(), command: async (command) => { commands.push(command); } }, "attached", directory);
   const exited = spawn(process.execPath, ["-e", ""]);
   await once(exited, "exit");
@@ -33,7 +49,6 @@ test("compiled plugin registers, renders 15 keys, navigates, animates and stops 
     devicePixelRatio: 1, colors: {},
   };
   const messages: Record<string, unknown>[] = [];
-  const events = new EventEmitter();
   let output = "";
   const connected = new Promise<WebSocket>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("Plugin did not connect")), 8000);
@@ -85,6 +100,35 @@ test("compiled plugin registers, renders 15 keys, navigates, animates and stops 
     send("keyDown", 0);
     await waitFor(() => commands.length === 1);
     assert.deepEqual(commands, [{ type: "openSession", id: "attached" }]);
+    await waitFor(() => images("key-0").at(-1)?.includes("Open requested") === true);
+    send("keyDown", 10);
+    await waitFor(() => images("key-0").at(-1)?.includes("Working session") === true);
+    let releaseOther!: () => void;
+    otherHold = new Promise<void>((resolve) => { releaseOther = resolve; });
+    send("keyDown", 1);
+    await waitFor(() => otherStarted);
+    send("keyDown", 10);
+    await waitFor(() => images("key-0").at(-1)?.includes("Working session") === true);
+    send("keyDown", 0);
+    await waitFor(() => images("key-9").at(-1)?.includes("Loading details") === true);
+    const releasedAt = Date.now();
+    releaseOther();
+    otherHold = undefined;
+    await waitFor(() => images("key-9").at(-1)?.includes("Session status") === true);
+    assert.ok(Date.now() - releasedAt < 3000, "latest selection must refresh without waiting for the five-second poll");
+    assert.match(images("key-2").at(-1)!, /auto/);
+    send("keyDown", 10);
+    await waitFor(() => images("key-0").at(-1)?.includes("Working session") === true);
+    send("keyDown", 1);
+    await waitFor(() => images("key-2").at(-1)?.includes("other-model") === true);
+    send("keyDown", 7);
+    await waitFor(() => images("key-0").at(-1)?.includes("example") === true);
+    send("keyDown", 0);
+    await waitFor(() => images("key-0").at(-1)?.includes("Confirm") === true);
+    send("keyDown", 0);
+    await waitFor(() => otherCommands.length === 1);
+    assert.deepEqual(otherCommands, [{ type: "setMcp", name: "example", enabled: false }]);
+    assert.equal(commands.length, 1);
     for (let i = 0; i < 15; i++) send("willDisappear", i);
     await delay(250);
     const count = messages.filter((row) => row.event === "setImage").length;
@@ -96,6 +140,7 @@ test("compiled plugin registers, renders 15 keys, navigates, animates and stops 
     for (const client of server.clients) client.terminate();
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     await bridge.close();
+    await otherBridge.close();
     await rm(root, { recursive: true });
   }
 });

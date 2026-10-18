@@ -1,9 +1,11 @@
 import streamDeck, {
   action, SingletonAction, type WillAppearEvent, type WillDisappearEvent,
-  type KeyDownEvent, type KeyAction,
+  type KeyDownEvent, type KeyUpEvent, type KeyAction,
 } from "@elgato/streamdeck";
 import { BridgeClient } from "./client.js";
+import { CompanionClient } from "./companion.js";
 import { Dashboard } from "./dashboard.js";
+import { readSavedDetails } from "./history.js";
 import { tileDataUrl } from "./render.js";
 import { record } from "../shared/protocol.js";
 
@@ -12,6 +14,18 @@ type Settings = { favorites?: string[]; reducedMotion?: boolean; bridgeSessionId
 @action({ UUID: "com.haflidif.copilot.dashboard" })
 class DashboardAction extends SingletonAction {
   private client = new BridgeClient();
+  private companion = new CompanionClient(undefined, () => {
+    let retarget = false;
+    for (const board of this.boards.values()) {
+      const before = board.targetSessionId;
+      board.voice = this.companion.state;
+      if (before !== board.targetSessionId) { board.loadingDetails = Boolean(board.targetSessionId); retarget = true; }
+    }
+    if (retarget) void this.refresh();
+    void this.render().catch((error: unknown) => this.report(error));
+  });
+  private talking = new Map<string, Promise<boolean>>();
+  private voiceQueue: Promise<void> = Promise.resolve();
   private boards = new Map<string, Dashboard>();
   private visible = new Map<string, KeyAction>();
   private images = new Map<string, string>();
@@ -32,12 +46,14 @@ class DashboardAction extends SingletonAction {
   private board(deviceId: string): Dashboard {
     let board = this.boards.get(deviceId);
     if (!board) {
-      board = new Dashboard((command) => this.client.command(command), async (favorites) => {
+      const created: Dashboard = new Dashboard((command) => this.client.command(command, command.type === "setMcp" ? created.targetSessionId : undefined), async (favorites) => {
         const settings = { ...this.settings, favorites };
         await streamDeck.settings.setGlobalSettings(settings);
         this.applySettings(settings);
-      });
+      }, (request) => this.companion.send(request));
+      board = created;
       board.favorites = new Set(this.settings.favorites ?? []);
+      board.voice = this.companion.state;
       const other = this.boards.values().next().value;
       if (other) { board.snapshot = other.snapshot; board.error = other.error; }
       this.boards.set(deviceId, board);
@@ -74,12 +90,18 @@ class DashboardAction extends SingletonAction {
       return;
     }
     const board = this.board(ev.action.device.id);
+    if (board.isVoice(coordinates.row * 5 + coordinates.column)) {
+      const started = this.toggleVoice(ev.action);
+      if (board.voice?.mode === "push_to_talk") this.talking.set(ev.action.id, started);
+      await started;
+      return;
+    }
     try {
-      const [result] = await Promise.all([
-        board.press(coordinates.row * 5 + coordinates.column),
-        this.render(),
-      ]);
-      if (result === "refresh") await this.refresh();
+      const previousTarget = board.targetSessionId;
+      const press = board.press(coordinates.row * 5 + coordinates.column);
+      if (previousTarget !== board.targetSessionId) board.loadingDetails = Boolean(board.targetSessionId);
+      const [result] = await Promise.all([press, this.render()]);
+      if (result === "refresh" || previousTarget !== board.targetSessionId) await this.refresh();
     } catch (error) {
       board.error = error instanceof Error ? error.message : String(error);
       streamDeck.logger.error(board.error);
@@ -87,6 +109,27 @@ class DashboardAction extends SingletonAction {
     }
     await this.render();
     await this.sendStatus();
+  }
+
+  override async onKeyUp(ev: KeyUpEvent): Promise<void> {
+    const started = this.talking.get(ev.action.id);
+    this.talking.delete(ev.action.id);
+    if (started && await started) await this.toggleVoice(ev.action);
+  }
+
+  private toggleVoice(key: KeyAction): Promise<boolean> {
+    const result = this.voiceQueue.then(async () => {
+      try {
+        await this.companion.toggleVoice();
+        return true;
+      } catch (error) {
+        streamDeck.logger.error(`Voice: ${error instanceof Error ? error.message : String(error)}`);
+        await key.showAlert();
+        return false;
+      }
+    });
+    this.voiceQueue = result.then(() => undefined);
+    return result;
   }
 
   override async onSendToPlugin(ev: Parameters<NonNullable<SingletonAction["onSendToPlugin"]>>[0]): Promise<void> {
@@ -120,12 +163,33 @@ class DashboardAction extends SingletonAction {
   private async refresh(): Promise<void> {
     if (this.refreshing) return this.refreshing;
     this.refreshing = (async () => {
+      void this.companion.ensure();
       try {
-        const snapshot = await this.client.snapshot();
-        for (const board of this.boards.values()) {
-          board.snapshot = snapshot;
-          board.error = snapshot.errors.length ? snapshot.errors.join("\n") : undefined;
-        }
+        await Promise.all([...this.boards.values()].map(async (board) => {
+          for (;;) {
+            const target = board.targetSessionId;
+            try {
+              const snapshot = await this.client.snapshot(target);
+              const saved = target && target !== snapshot.bridgeSessionId
+                ? await readSavedDetails(target, snapshot.sessions.find((row) => row.id === target)?.name ?? "Session").catch((error: unknown) => {
+                  streamDeck.logger.warn(`Saved session details: ${error instanceof Error ? error.message : String(error)}`);
+                  return undefined;
+                })
+                : undefined;
+              if (target !== board.targetSessionId) continue;
+              board.snapshot = snapshot;
+              board.savedDetails = saved;
+              board.error = snapshot.errors.length ? snapshot.errors.join("\n") : undefined;
+            } catch (error) {
+              if (target !== board.targetSessionId) continue;
+              board.snapshot = undefined;
+              board.error = error instanceof Error ? error.message : String(error);
+              streamDeck.logger.error(board.error);
+            }
+            board.loadingDetails = false;
+            return;
+          }
+        }));
       } catch (error) {
         for (const board of this.boards.values()) board.snapshot = undefined;
         this.report(error);
@@ -171,6 +235,7 @@ class DashboardAction extends SingletonAction {
       bridgeSessionId: board?.snapshot?.bridgeSessionId ?? "",
       attachedSession: board?.snapshot?.details?.name ?? "",
       error: board?.error ?? "",
+      detailsMessage: board?.detailsMessage ?? "",
       projects: board?.snapshot?.projects.length ?? 0,
       sessions: board?.snapshot?.sessions.length ?? 0,
     });

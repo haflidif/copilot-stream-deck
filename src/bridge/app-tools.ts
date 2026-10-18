@@ -2,6 +2,19 @@ import { readFile, stat } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { record } from "../shared/protocol.js";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
+export function validateSessionLink(value: unknown, id: string): string {
+  if (typeof value !== "string" || !/^[a-zA-Z0-9-]{1,100}$/.test(id) ||
+      value !== `ghapp://sessions/${id}`) throw new Error("Invalid Copilot session link");
+  return value;
+}
+
+export async function openSessionLink(url: string): Promise<void> {
+  if (process.platform !== "win32") throw new Error("Opening Copilot session links requires Windows");
+  await promisify(execFile)("rundll32.exe", ["url.dll,FileProtocolHandler", url], { timeout: 10000, windowsHide: true });
+}
 
 // Native tool responses may be spilled by the host's large-output processor.
 export async function decodeToolResult(result: unknown): Promise<unknown> {

@@ -28,6 +28,8 @@ export interface SessionDetails {
   contextTier?: string;
   aiCredits?: number;
   creditsStatus?: string;
+  source?: "live" | "saved";
+  updatedAt?: string;
 }
 
 export interface McpServer {

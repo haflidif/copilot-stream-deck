@@ -1,20 +1,13 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { bridgeDirectory } from "../shared/paths.js";
+import { bridgeDirectory, isProcessAlive } from "../shared/paths.js";
 import { parseDescriptor, parseSnapshot, record, type BridgeDescriptor, type Command, type Snapshot } from "../shared/protocol.js";
-
-function isAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return (error as NodeJS.ErrnoException).code === "EPERM";
-  }
-}
 
 export class BridgeClient {
   private descriptor?: BridgeDescriptor;
   private preferredId = "";
+
+  constructor(private directory = bridgeDirectory()) {}
 
   select(sessionId: string): void {
     if (sessionId !== this.preferredId) {
@@ -23,8 +16,8 @@ export class BridgeClient {
     }
   }
 
-  private async discover(): Promise<BridgeDescriptor> {
-    const directory = bridgeDirectory();
+  private async discover(sessionId = this.preferredId): Promise<BridgeDescriptor | undefined> {
+    const directory = this.directory;
     let names: string[];
     try {
       names = await readdir(directory);
@@ -33,7 +26,7 @@ export class BridgeClient {
       throw error;
     }
     const paths = names.filter((name) => /^[a-zA-Z0-9-]+\.json$/.test(name) &&
-      (!this.preferredId || name === `${this.preferredId}.json`)).map((name) => join(directory, name));
+      (!sessionId || name === `${sessionId}.json`)).map((name) => join(directory, name));
     const entries = await Promise.all(paths.map(async (path) => ({ path, modified: (await stat(path)).mtimeMs })));
     entries.sort((a, b) => b.modified - a.modified);
     for (const entry of entries) {
@@ -43,14 +36,17 @@ export class BridgeClient {
       } catch {
         continue;
       }
-      if (isAlive(descriptor.pid)) return descriptor;
+      if (isProcessAlive(descriptor.pid)) return descriptor;
     }
-    throw new Error("No matching Copilot bridge is running");
+    return undefined;
   }
 
-  private async request(path: string, command?: Command): Promise<unknown> {
-    const descriptor = this.descriptor ?? await this.discover();
-    this.descriptor = descriptor;
+  private async request(path: string, command?: Command, sessionId?: string): Promise<unknown> {
+    const target = sessionId ? await this.discover(sessionId) : undefined;
+    if (sessionId && command && !target) throw new Error("The selected session bridge is no longer running");
+    const descriptor = target ?? this.descriptor ?? await this.discover();
+    if (!descriptor) throw new Error("No matching Copilot bridge is running");
+    if (!target) this.descriptor = descriptor;
     try {
       const response = await fetch(`http://127.0.0.1:${descriptor.port}/v1/${path}`, {
         method: command ? "POST" : "GET",
@@ -68,12 +64,12 @@ export class BridgeClient {
     }
   }
 
-  async snapshot(): Promise<Snapshot> {
-    return parseSnapshot(await this.request("snapshot"));
+  async snapshot(sessionId?: string): Promise<Snapshot> {
+    return parseSnapshot(await this.request("snapshot", undefined, sessionId));
   }
 
-  async command(command: Command): Promise<void> {
-    const result = record(await this.request("command", command));
+  async command(command: Command, sessionId?: string): Promise<void> {
+    const result = record(await this.request("command", command, sessionId));
     if (result.ok !== true) throw new Error("Copilot did not acknowledge the command");
   }
 }

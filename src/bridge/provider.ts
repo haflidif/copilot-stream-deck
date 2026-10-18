@@ -1,4 +1,4 @@
-import { decodeToolResult, deadline, type JoinedSession } from "./app-tools.js";
+import { decodeToolResult, deadline, openSessionLink, validateSessionLink, type JoinedSession } from "./app-tools.js";
 import { finite, record, text, type AppSession, type Command, type McpServer, type Project, type Snapshot } from "../shared/protocol.js";
 
 export function normalizeSessions(value: unknown): AppSession[] {
@@ -35,7 +35,7 @@ export class AppProvider {
   private projects?: { time: number; value: Project[] };
   private unsubscribe: () => void;
 
-  constructor(private session: JoinedSession) {
+  constructor(private session: JoinedSession, private openLink = openSessionLink) {
     this.unsubscribe = session.on((event) => {
       if (["assistant.turn_start", "user.message", "session.idle", "session.error",
         "permission.requested", "user_input.requested", "session.model_change"].includes(event.type)) this.last = undefined;
@@ -87,7 +87,7 @@ export class AppProvider {
       snapshot.errors.push(`App tools: ${error instanceof Error ? error.message : String(error)}`);
     }
     snapshot.capabilities.openSession = {
-      available: this.names.has("navigate_to"), reason: this.names.has("navigate_to") ? undefined : "Host navigation tool unavailable",
+      available: this.names.has("list_sessions_and_chats"), reason: this.names.has("list_sessions_and_chats") ? undefined : "Host session links unavailable",
     };
     snapshot.capabilities.newChat = {
       available: this.names.has("create_session"), reason: this.names.has("create_session") ? undefined : "Host session creation tool unavailable",
@@ -142,11 +142,16 @@ export class AppProvider {
   async command(command: Command): Promise<void> {
     const snapshot = await this.snapshot();
     switch (command.type) {
-      case "openSession":
+      case "openSession": {
         if (!snapshot.sessions.some((row) => row.id === command.id)) throw new Error("Session is no longer available");
         if (!snapshot.capabilities.openSession.available) throw new Error("Opening sessions is unavailable");
-        await deadline(this.session.rpc.tools.execute({ name: "navigate_to", arguments: { id: command.id } })).then(assertToolSuccess);
+        const catalog = await this.appTool("list_sessions_and_chats");
+        if (!Array.isArray(catalog)) throw new Error("App session catalog is not an array");
+        const row = catalog.map(record).find((item) => item.id === command.id);
+        if (!row) throw new Error("Session is no longer available in the app catalog");
+        await this.openLink(validateSessionLink(row.app_url, command.id));
         break;
+      }
       case "newChat":
         if (!snapshot.capabilities.newChat.available) throw new Error("New chat is unavailable");
         await deadline(this.session.rpc.tools.execute({

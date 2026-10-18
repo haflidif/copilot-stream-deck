@@ -20,8 +20,8 @@
   <p id="scope">No bridge attached.</p>
   <pre id="error" role="alert"></pre>
   <h3>Before using it</h3>
-  <p>Build this repository, then load the Stream Deck extension in the Copilot app. Keep that session open. The bridge uses an authenticated local connection; no GitHub token is entered here.</p>
-  <p>Projects and session status come from the app. Model, context, credits and MCP controls apply only to the attached bridge session. Favorites are saved by this plugin, not synced with app pins. Voice is not connected yet.</p>
+  <p>Install the Copilot extension with <code>npm run extension:install</code>. At least one Copilot runtime must be running with the extension loaded. A visible conversation alone is not enough: Copilot can stop idle runtimes and their bridges. The bridge uses an authenticated local connection; no GitHub token is entered here.</p>
+  <p>Projects and session status come from the app. Selecting a session uses its running bridge for model, context, credits and MCP controls. Sessions without a bridge show no metrics. The bridge ID chooses the default for This session and the home MCP button. Favorites are saved by this plugin, not synced with app pins. Voice is not connected yet.</p>
   <script src="settings.js"></script>
 </body>
 </html>

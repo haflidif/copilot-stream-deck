@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, writeFile, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { decodeToolResult } from "../src/bridge/app-tools.js";
+import { decodeToolResult, validateSessionLink } from "../src/bridge/app-tools.js";
 import { AppProvider, normalizeSessions } from "../src/bridge/provider.js";
 import { startBridge } from "../src/bridge/server.js";
 import { parseCommand, parseDescriptor, parseSnapshot, type Command } from "../src/shared/protocol.js";
@@ -23,6 +23,25 @@ test("native tool parser rejects failed, truncated and arbitrary-file results", 
   await assert.rejects(decodeToolResult({ resultType: "failure", textResultForLlm: "Denied" }), /Denied/);
   await assert.rejects(decodeToolResult('Found 4 items:\n[{"id":"a"}'), /invalid or truncated/);
   await assert.rejects(decodeToolResult("Saved to: C:\\private\\secret.txt"), /unexpected/);
+});
+
+test("bridge startup prunes descriptors of dead processes and close keeps a replacement", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "copilot-deck-prune-"));
+  try {
+    const dead = { version: 1, sessionId: "dead", port: 1, token: "b".repeat(64), pid: 2147483646 };
+    const alive = { ...dead, sessionId: "alive", pid: process.pid };
+    await writeFile(join(directory, "dead.json"), JSON.stringify(dead));
+    await writeFile(join(directory, "alive.json"), JSON.stringify(alive));
+    const provider = { snapshot: async () => snapshot(), command: async () => {} };
+    const bridge = await startBridge(provider, "same", directory);
+    await assert.rejects(readFile(join(directory, "dead.json")));
+    await readFile(join(directory, "alive.json"));
+    const replacement = await startBridge(provider, "same", directory);
+    await bridge.close();
+    assert.equal(parseDescriptor(JSON.parse(await readFile(join(directory, "same.json"), "utf8"))).token, replacement.descriptor.token);
+    await replacement.close();
+    await assert.rejects(readFile(join(directory, "same.json")));
+  } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
 test("status normalization prioritizes attention and never infers completion from idle", () => {
@@ -78,6 +97,36 @@ test("native command failures propagate and stale session targets are rejected",
     session.rpc.tools.execute = async () => ({ resultType: "denied", textResultForLlm: "Denied by host" });
     await assert.rejects(provider.command({ type: "openSession", id: "attached" }), /Denied by host/);
     await assert.rejects(provider.command({ type: "openSession", id: "deleted" }), /no longer available/);
+  } finally { provider.dispose(); }
+});
+
+test("open uses the app-provided session link and never calls agent navigation", async () => {
+  const session = joinedSession();
+  const opened: string[] = [];
+  const calls: string[] = [];
+  const execute = session.rpc.tools.execute;
+  session.rpc.tools.execute = async (params) => { calls.push(params.name); return execute(params); };
+  const provider = new AppProvider(session, async (url) => { opened.push(url); });
+  try {
+    await provider.command({ type: "openSession", id: "attached" });
+    assert.deepEqual(opened, ["ghapp://sessions/attached"]);
+    assert.ok(!calls.includes("navigate_to"));
+    assert.equal(validateSessionLink("ghapp://sessions/attached", "attached"), "ghapp://sessions/attached");
+    for (const url of ["https://example.com", "file:///C:/Windows", "ghapp://sessions/other", "ghapp://sessions/attached?x=1"]) {
+      assert.throws(() => validateSessionLink(url, "attached"), /Invalid Copilot/);
+    }
+    session.rpc.tools.execute = async (params) => params.name === "list_sessions_and_chats" ? ({
+      resultType: "success", textResultForLlm: JSON.stringify([{ id: "attached", app_url: "https://example.com" }]),
+    }) : execute(params);
+    await assert.rejects(provider.command({ type: "openSession", id: "attached" }), /Invalid Copilot/);
+    assert.equal(opened.length, 1);
+  } finally { provider.dispose(); }
+});
+
+test("session link launch failures are surfaced", async () => {
+  const provider = new AppProvider(joinedSession(), async () => { throw new Error("URL handler failed"); });
+  try {
+    await assert.rejects(provider.command({ type: "openSession", id: "attached" }), /URL handler failed/);
   } finally { provider.dispose(); }
 });
 

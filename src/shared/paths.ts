@@ -7,3 +7,12 @@ export function bridgeDirectory(): string {
     : join(homedir(), ".local", "share");
   return join(base, "CopilotStreamDeck", "bridges");
 }
+
+export function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
+}

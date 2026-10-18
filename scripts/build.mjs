@@ -1,5 +1,5 @@
 import { build } from "esbuild";
-import { mkdir, writeFile, rm } from "node:fs/promises";
+import { copyFile, mkdir, writeFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { deflateSync } from "node:zlib";
 
@@ -11,10 +11,11 @@ await Promise.all([
     banner: { js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);" },
   }),
   build({
-    entryPoints: ["src/bridge/entry.ts"], outfile: ".github/extensions/stream-deck/bridge.mjs",
+    entryPoints: ["src/bridge/entry.ts"], outfile: "dist/extension/bridge.mjs",
     bundle: true, platform: "node", format: "esm", target: "node20", sourcemap: false,
   }),
 ]);
+await copyFile(resolve("extension/extension.mjs"), resolve("dist/extension/extension.mjs"));
 
 // Generate small original raster icons without adding an image-tool dependency.
 function png(size, mono = false) {
