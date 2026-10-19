@@ -10,13 +10,17 @@ import type { Activity, AppSession, Project, SessionDetails, Snapshot } from "..
 
 export interface Discovery { url: string; token: string }
 export interface PendingQuestion { token: string; choices: string[]; custom: boolean }
+/** An MCP server as the app shows it for its active session. Locked servers are managed by policy or the app. */
+export interface AppMcp { id: string; name: string; enabled: boolean; toggleable: boolean; pending: boolean }
 export interface VoiceState {
   available: boolean; recording: boolean; mode: "toggle" | "push_to_talk"; activeSessionId?: string;
   active?: SessionDetails;
   question?: PendingQuestion;
+  mcp?: AppMcp[];
 }
 export type CompanionRequest =
   | { type: "voice.toggle" }
+  | { type: "mcp.toggle"; serverId: string }
   | { type: "session.open"; sessionId: string }
   | { type: "session.new" }
   | { type: "question.answer"; sessionId: string; questionToken: string; choiceIndex: number }
@@ -25,7 +29,20 @@ type ActionEndpoint = "voice-actions" | "session-actions" | "mcp-actions";
 type Endpoint = "navigation" | ActionEndpoint;
 
 function endpointFor(request: CompanionRequest): ActionEndpoint {
-  return request.type === "voice.toggle" ? "voice-actions" : "session-actions";
+  return request.type === "voice.toggle" ? "voice-actions" : request.type === "mcp.toggle" ? "mcp-actions" : "session-actions";
+}
+
+/** Reads the snapshot's `mcpServers`. Returns nothing until the app has loaded the list. */
+export function parseMcpServers(value: unknown): AppMcp[] | undefined {
+  if (!value || typeof value !== "object") return;
+  const { loaded, items } = value as Record<string, unknown>;
+  if (loaded !== true || !Array.isArray(items)) return;
+  return items.flatMap((item): AppMcp[] => {
+    if (!item || typeof item !== "object") return [];
+    const row = item as Record<string, unknown>;
+    if (typeof row.id !== "string" || !/^[\w.@-]{1,100}$/.test(row.id) || typeof row.enabled !== "boolean") return [];
+    return [{ id: row.id, name: label(row.name) ?? row.id, enabled: row.enabled, toggleable: row.toggleable === true, pending: row.status === "pending" }];
+  });
 }
 
 export interface NavFeed { projects: Project[]; sessions: AppSession[] }
@@ -135,16 +152,17 @@ export function parseDiscovery(text: string, endpoint: Endpoint): Discovery {
 
 export function parseVoiceState(message: unknown): VoiceState | undefined {
   if (!message || typeof message !== "object") return;
-  const { type, voiceDictation, activeSession } = message as Record<string, unknown>;
+  const { type, voiceDictation, activeSession, mcpServers } = message as Record<string, unknown>;
   if (type !== "snapshot" || !voiceDictation || typeof voiceDictation !== "object") return;
   const voice = voiceDictation as Record<string, unknown>;
   if (typeof voice.available !== "boolean" || typeof voice.recording !== "boolean" ||
       (voice.recordingMode !== "toggle" && voice.recordingMode !== "push_to_talk")) return;
   const active = parseActiveSession(activeSession);
   const question = active ? parsePendingQuestion((activeSession as Record<string, unknown>).pendingQuestion) : undefined;
+  const mcp = active ? parseMcpServers(mcpServers) : undefined;
   return {
     available: voice.available, recording: voice.recording, mode: voice.recordingMode,
-    activeSessionId: active?.id, ...(active ? { active } : {}), ...(question ? { question } : {}),
+    activeSessionId: active?.id, ...(active ? { active } : {}), ...(question ? { question } : {}), ...(mcp ? { mcp } : {}),
   };
 }
 

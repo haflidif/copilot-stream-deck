@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseNavFeed, withNavFeed } from "../src/plugin/companion.js";
+import { parseMcpServers, parseNavFeed, withNavFeed } from "../src/plugin/companion.js";
 import { Dashboard } from "../src/plugin/dashboard.js";
 import { snapshot } from "./fixtures.js";
 
@@ -50,6 +50,39 @@ test("the feed replaces bridge lists and stands in when no bridge answers", () =
   assert.equal(alone.capabilities.openSession.available, true);
   assert.equal(alone.capabilities.newChat.available, false);
   assert.deepEqual(alone.errors, []);
+});
+
+test("MCP servers come from the app for its active session and toggle only while unchanged", async () => {
+  assert.deepEqual(parseMcpServers({ loaded: true, items: [
+    { id: "second-brain", name: "second-brain", enabled: false, toggleable: true, status: "pending" },
+    { id: "azure", name: "Azure", enabled: true, toggleable: false },
+    { id: "bad id!", name: "x", enabled: true },
+  ] }), [
+    { id: "second-brain", name: "second-brain", enabled: false, toggleable: true, pending: true },
+    { id: "azure", name: "Azure", enabled: true, toggleable: false, pending: false },
+  ]);
+  assert.equal(parseMcpServers({ loaded: false, items: [] }), undefined);
+
+  const sent: unknown[] = [];
+  const board = new Dashboard(async () => {}, async () => {}, async (request) => { sent.push(request); });
+  board.snapshot = withNavFeed(undefined, parseNavFeed(message)!, "s-1");
+  board.voice = { available: true, recording: false, mode: "toggle", activeSessionId: "s-1", mcp: [
+    { id: "playwright", name: "Playwright", enabled: true, toggleable: true, pending: false },
+    { id: "azure", name: "Azure", enabled: true, toggleable: false, pending: false },
+    { id: "second-brain", name: "second-brain", enabled: true, toggleable: true, pending: true },
+  ] };
+  assert.equal(board.tiles()[4]?.disabled, false);
+  await board.press(4);
+  assert.deepEqual(board.tiles().slice(0, 3).map((tile) => [tile.label, tile.value, tile.disabled]),
+    [["Playwright", "ON", false], ["Azure", "ON", true], ["second-brain", "ON", false]]);
+  await board.press(0);
+  assert.equal(board.tiles()[2]?.label, "Disable Playwright?");
+  board.voice = { ...board.voice, mcp: [{ id: "playwright", name: "Playwright", enabled: false, toggleable: true, pending: false }] };
+  assert.equal(board.tiles()[0]?.label, "Changed in app");
+  board.voice = { ...board.voice, mcp: [{ id: "playwright", name: "Playwright", enabled: true, toggleable: true, pending: false }] };
+  await board.press(0);
+  assert.deepEqual(sent, [{ type: "mcp.toggle", serverId: "playwright" }]);
+  assert.equal(board.view.type, "mcp");
 });
 
 test("the home Pinned tile lists app pins alongside local favorites", async () => {

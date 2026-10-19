@@ -1,5 +1,5 @@
 import type { Activity, Command, SessionDetails, Snapshot } from "../shared/protocol.js";
-import type { CompanionRequest, VoiceState } from "./companion.js";
+import type { AppMcp, CompanionRequest, VoiceState } from "./companion.js";
 import { icons } from "./icons.js";
 
 export type Icon = keyof typeof icons;
@@ -61,6 +61,11 @@ export class Dashboard {
       value: question.choices.length ? String(question.choices.length) : undefined,
       action: { type: "view", view: { type: "question", page: 0 } },
     };
+  }
+
+  /** The app's own MCP list, which only describes its active session. */
+  private appMcp(sessionId: string): AppMcp[] | undefined {
+    return this.voice?.activeSessionId === sessionId ? this.voice.mcp : undefined;
   }
 
   get targetSessionId(): string | undefined {
@@ -130,7 +135,9 @@ export class Dashboard {
         data.capabilities.appPins.available
           ? viewTile("Pinned", "pin", { type: "sessions", page: 0, favorites: true }, !data.capabilities.sessions.available)
           : viewTile("Favorites", "star", { type: "sessions", page: 0, favorites: true }, !data.capabilities.sessions.available),
-        viewTile("MCP servers", "grid", { type: "mcp", page: 0, sessionId: data.bridgeSessionId }, !data.capabilities.mcp.available),
+        this.voice?.activeSessionId && this.voice.mcp
+          ? viewTile("MCP servers", "grid", { type: "mcp", page: 0, sessionId: this.voice.activeSessionId })
+          : viewTile("MCP servers", "grid", { type: "mcp", page: 0, sessionId: data.bridgeSessionId }, !data.capabilities.mcp.available),
         viewTile("Chats", "chat", { type: "sessions", page: 0, chats: true }, !data.capabilities.sessions.available),
         viewTile(this.voice?.activeSessionId ? "Active session" : "This session", "session", { type: "session", id: data.bridgeSessionId, follow: true, page: 0 }),
         this.voiceTile(),
@@ -170,13 +177,23 @@ export class Dashboard {
         { label: "Context used", value: details?.contextPercent === undefined ? missing : `${details.contextPercent.toFixed(0)}%`, gauge: details?.contextPercent },
         { label: "Context limit", value: details?.contextLimit === undefined ? missing : formatTokens(details.contextLimit) },
         { label: details?.creditsStatus === "complete" ? "AI credits" : details ? "Credits (partial)" : "AI credits", value: details?.aiCredits === undefined ? missing : details.aiCredits.toFixed(1) },
-        viewTile("MCP servers", "grid", { type: "mcp", page: 0, sessionId: id }, !own || !data.capabilities.mcp.available),
+        viewTile("MCP servers", "grid", { type: "mcp", page: 0, sessionId: id }, !this.appMcp(id) && (!own || !data.capabilities.mcp.available)),
         this.voiceTile(id),
         { label: this.loadingDetails && !appLive ? "Loading details" : statusLabel(session?.activity) ?? (own ? "Session status" : appLive ? "Live from app" : saved ? "Saved values" : "Bridge not running"), icon: "session", activity: session?.activity ?? "unknown" },
       ];
     } else if (this.view.type === "mcp") {
       const sessionId = this.view.sessionId;
-      items = data.bridgeSessionId !== sessionId ? [] : data.mcp.map((server) => ({
+      const app = this.appMcp(sessionId);
+      items = app ? app.map((server): Tile => ({
+        label: server.name, icon: "grid",
+        value: server.enabled ? "ON" : "OFF",
+        selected: server.enabled,
+        disabled: !server.toggleable,
+        action: { type: "view", view: { type: "confirm", page: 0,
+          command: { type: "setMcp", name: server.name, enabled: !server.enabled },
+          request: { type: "mcp.toggle", serverId: server.id }, sessionId,
+          label: `${server.enabled ? "Disable" : "Enable"} ${server.name}?` } },
+      })) : data.bridgeSessionId !== sessionId ? [] : data.mcp.map((server) => ({
         label: server.name, icon: "grid",
         value: server.enabled ? "ON" : "OFF",
         selected: server.enabled,
@@ -203,10 +220,15 @@ export class Dashboard {
         { label: "Cancel", icon: "back", action: { type: "back" } },
       ];
     } else if (this.view.type === "confirm") {
+      const request = this.view.request;
+      const command = this.view.command;
+      // mcp.toggle flips the server, so only confirm while the app still shows the state this screen offered to change.
+      const stale = request?.type === "mcp.toggle" && command.type === "setMcp" && !(this.appMcp(this.view.sessionId ?? "") ?? [])
+        .some((server) => server.id === request.serverId && server.enabled !== command.enabled);
       items = [
-        { label: "Confirm", icon: "check", action: this.view.request
-          ? { type: "companion", request: this.view.request }
-          : { type: "command", command: this.view.command } },
+        { label: stale ? "Changed in app" : "Confirm", icon: "check", disabled: stale, action: request
+          ? { type: "companion", request }
+          : { type: "command", command } },
         { label: "Cancel", icon: "back", action: { type: "back" } },
         { label: this.view.label, icon: this.view.command.type === "setMcp" ? "grid" : "plus" },
       ];
