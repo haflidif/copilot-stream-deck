@@ -39,6 +39,11 @@ type View =
   | { type: "reasoning"; page: number; sessionId: string; modelId?: string }
   | { type: "confirm"; page: number; command: Command; label: string; sessionId?: string; request?: CompanionRequest }
   | { type: "question"; page: number };
+
+const viewTitles: Record<View["type"], string> = {
+  home: "Home", projects: "Projects", sessions: "Sessions", session: "Session", mcp: "MCP",
+  models: "Models", reasoning: "Mode", confirm: "Confirm", question: "Question",
+};
 type Action =
   | { type: "view"; view: View }
   | { type: "back" | "previous" | "next" | "refresh" | "home" | "voice" }
@@ -360,11 +365,12 @@ export class Dashboard {
     items.slice(this.view.page * 10, this.view.page * 10 + 10).forEach((tile, index) => { tiles[index] = tile; });
     if (!items.length) tiles[0] = { label: "No items", icon: "chat", disabled: true };
     tiles[10] = { label: "Back", icon: "back", disabled: !this.history.length, action: { type: "back" } };
-    tiles[11] = { label: "Previous", icon: "left", disabled: this.view.page === 0, action: { type: "previous" } };
-    tiles[12] = { label: this.error ? "Error: see settings" : this.busy ? "Please wait" : `${this.view.type} ${this.view.page + 1}/${maxPage + 1}`,
+    if (maxPage > 0) tiles[11] = { label: "Previous", icon: "left", disabled: this.view.page === 0, action: { type: "previous" } };
+    const title = viewTitles[this.view.type] + (maxPage > 0 ? ` ${this.view.page + 1}/${maxPage + 1}` : "");
+    tiles[12] = { label: this.error ? "Error: see settings" : this.busy ? "Please wait" : title,
       icon: this.error ? "error" : "home", activity: this.error ? "error" : this.busy ? "working" : undefined, action: { type: "home" } };
     tiles[13] = { label: "Refresh", icon: "refresh", action: { type: "refresh" } };
-    tiles[14] = { label: "Next", icon: "right", disabled: this.view.page >= maxPage, action: { type: "next" } };
+    if (maxPage > 0) tiles[14] = { label: "Next", icon: "right", disabled: this.view.page >= maxPage, action: { type: "next" } };
     return tiles;
   }
 

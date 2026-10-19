@@ -115,7 +115,8 @@ export function renderTile(tile: Tile, frame = 0, reducedMotion = false): string
     const value = [...tile.value].slice(0, 32).join("");
     const length = [...value].length;
     const lines = length > 10 ? labelLines(value, 12) : [value];
-    const size = lines.length > 1 ? 22 : length <= 4 ? 46 : length <= 7 ? 34 : 26;
+    // Long single words shrink to fit the key instead of being clipped (bold glyphs are about 0.5em wide).
+    const size = lines.length > 1 ? 22 : length <= 4 ? 46 : length <= 7 ? 34 : Math.min(26, Math.floor(260 / length));
     const toned = tile.tone && !tile.activity && !tile.recording && !accent ? toneFill(tile.tone) : { fill: color, defs: "" };
     center = toned.defs + lines.map((line, index) => `<text x="72" y="${lines.length > 1 ? 44 + index * 26 : (tall ? 56 : 62) + size * 0.1}" text-anchor="middle" fill="${toned.fill}" font-size="${size}" font-weight="700">${escapeXml(line)}</text>`).join("");
   } else {
