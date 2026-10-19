@@ -114,7 +114,7 @@ test("compiled plugin registers, renders 15 keys, navigates, animates and stops 
     const releasedAt = Date.now();
     releaseOther();
     otherHold = undefined;
-    await waitFor(() => images("key-9").at(-1)?.includes("Session status") === true);
+    await waitFor(() => images("key-9").at(-1)?.includes(">Working<") === true);
     assert.ok(Date.now() - releasedAt < 3000, "latest selection must refresh without waiting for the five-second poll");
     assert.match(images("key-2").at(-1)!, /auto/);
     send("keyDown", 10);

@@ -29,6 +29,11 @@ type Action =
   | { type: "favorite"; id: string }
   | { type: "command"; command: Command };
 
+const statusLabels: Partial<Record<Activity, string>> = {
+  working: "Working", attention: "Needs you", ready: "Ready to merge", idle: "Idle", error: "Stopped",
+};
+const statusLabel = (activity?: Activity): string | undefined => activity && statusLabels[activity];
+
 export class Dashboard {
   view: View = { type: "home", page: 0 };
   private history: View[] = [];
@@ -165,7 +170,7 @@ export class Dashboard {
         { label: details?.creditsStatus === "complete" ? "AI credits" : details ? "Credits (partial)" : "AI credits", value: details?.aiCredits === undefined ? missing : details.aiCredits.toFixed(1) },
         viewTile("MCP servers", "grid", { type: "mcp", page: 0, sessionId: id }, !own || !data.capabilities.mcp.available),
         this.voiceTile(id),
-        { label: this.loadingDetails && !appLive ? "Loading details" : own ? "Session status" : appLive ? "Live from app" : saved ? "Saved values" : "Bridge not running", icon: "session", activity: session?.activity ?? "unknown" },
+        { label: this.loadingDetails && !appLive ? "Loading details" : statusLabel(session?.activity) ?? (own ? "Session status" : appLive ? "Live from app" : saved ? "Saved values" : "Bridge not running"), icon: "session", activity: session?.activity ?? "unknown" },
       ];
     } else if (this.view.type === "mcp") {
       const sessionId = this.view.sessionId;

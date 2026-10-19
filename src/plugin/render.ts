@@ -26,7 +26,7 @@ export function renderTile(tile: Tile, frame = 0, reducedMotion = false): string
   if (!tile.label && !tile.icon && !tile.value && !tile.activity) {
     return '<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144"><rect width="144" height="144" rx="13" fill="#0d1117"/></svg>';
   }
-  const color = tile.activity === "error" || tile.recording ? "#ff747e" : tile.activity === "attention" ? "#ffc569" : "#b392f0";
+  const color = tile.activity === "error" || tile.recording ? "#ff747e" : tile.activity === "attention" ? "#ffc569" : tile.activity === "ready" ? "#5be3a5" : "#b392f0";
   const disabled = tile.disabled ? 0.42 : 1;
   const label = labelLines(tile.label).map((line, index) =>
     `<text x="72" y="${116 + index * 16}" text-anchor="middle" fill="#e6edf3" font-size="14" font-weight="600">${escapeXml(line)}</text>`).join("");
@@ -57,6 +57,7 @@ export function renderTile(tile: Tile, frame = 0, reducedMotion = false): string
   const badge = tile.activity && tile.activity !== "working"
     ? tile.activity === "attention" ? `<text x="119" y="26" text-anchor="middle" fill="${color}" font-size="20" font-weight="700">?</text>`
       : tile.activity === "error" ? `<path d="m113 16 10 10m0-10-10 10" stroke="${color}" stroke-width="3"/>`
+        : tile.activity === "ready" ? `<path d="m112 21 5 5 9-10" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`
         : `<circle cx="119" cy="21" r="5" fill="${tile.activity === "idle" ? "#8b949e" : "#484f58"}"/>`
     : "";
   const pulse = (tile.activity === "attention" || tile.recording) && !reducedMotion && !tile.disabled

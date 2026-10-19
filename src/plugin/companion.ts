@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import WebSocket from "ws";
-import type { SessionDetails } from "../shared/protocol.js";
+import type { Activity, AppSession, Project, SessionDetails, Snapshot } from "../shared/protocol.js";
 
 // Talks to the Copilot app's "Companion device integration" experiment (the same local
 // API the Logitech keypad uses). It is undocumented, so every message is validated.
@@ -26,6 +26,76 @@ type Endpoint = "navigation" | ActionEndpoint;
 
 function endpointFor(request: CompanionRequest): ActionEndpoint {
   return request.type === "voice.toggle" ? "voice-actions" : "session-actions";
+}
+
+export interface NavFeed { projects: Project[]; sessions: AppSession[] }
+
+const feedId = (value: unknown): string | undefined =>
+  typeof value === "string" && /^[a-zA-Z0-9-]{1,100}$/.test(value) ? value : undefined;
+
+function feedActivity(status: unknown, indicator: unknown): Activity {
+  if (indicator === "merge_ready" && (status === "attention" || status === "idle")) return "ready";
+  switch (status) {
+    case "running": return "working";
+    case "attention": case "needs_input": return "attention";
+    case "interrupted": case "failed": return "error";
+    case "idle": case "paused": case "merge_ready": return "idle";
+    default: return "unknown";
+  }
+}
+
+/** Reads the app's sidebar (projects, chats and their sessions) from a navigation snapshot. */
+export function parseNavFeed(message: unknown): NavFeed | undefined {
+  if (!message || typeof message !== "object") return;
+  const { type, root, collections } = message as Record<string, unknown>;
+  if (type !== "snapshot" || !root || typeof root !== "object" || !collections || typeof collections !== "object") return;
+  const rootItems = (root as Record<string, unknown>).items;
+  if (!Array.isArray(rootItems)) return;
+  const projects: Project[] = [];
+  for (const item of rootItems) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    const id = feedId(row.id);
+    if (row.kind === "project" && id) projects.push({ id, name: label(row.label) ?? "Project" });
+  }
+  const sessions = new Map<string, AppSession>();
+  for (const [key, collection] of Object.entries(collections as Record<string, unknown>)) {
+    const items = collection && typeof collection === "object" ? (collection as Record<string, unknown>).items : undefined;
+    if (!Array.isArray(items)) continue;
+    const projectId = key.startsWith("project:") ? feedId(key.slice(8)) : undefined;
+    for (const item of items) {
+      if (!item || typeof item !== "object") continue;
+      const row = item as Record<string, unknown>;
+      const id = feedId(row.id);
+      if (!id || (row.kind !== "workspace" && row.kind !== "chat")) continue;
+      const chat = row.kind === "chat";
+      const known = sessions.get(id);
+      // Pinned items repeat a session, so keep the copy that knows its project.
+      if (known && (known.projectId || !projectId)) continue;
+      sessions.set(id, {
+        id, name: label(row.label) ?? (chat ? "New chat" : "New session"),
+        kind: chat ? "chat" : "session", activity: feedActivity(row.status, row.indicatorKind),
+        ...(projectId && !chat ? { projectId } : {}),
+      });
+    }
+  }
+  return { projects, sessions: [...sessions.values()] };
+}
+
+/** Lays the app's own sidebar over a bridge snapshot, or stands in for one when no bridge answers. */
+export function withNavFeed(snapshot: Snapshot | undefined, feed: NavFeed, activeSessionId?: string): Snapshot {
+  const on = { available: true };
+  if (snapshot) {
+    return { ...snapshot, projects: feed.projects, sessions: feed.sessions,
+      errors: snapshot.errors.filter((line) => !/^(projects|sessions): /.test(line)),
+      capabilities: { ...snapshot.capabilities, projects: on, sessions: on, openSession: on } };
+  }
+  const off = { available: false, reason: "Load the Copilot Companion extension in a session for this" };
+  return {
+    version: 1, capturedAt: new Date().toISOString(), bridgeSessionId: activeSessionId ?? "",
+    projects: feed.projects, sessions: feed.sessions, mcp: [], errors: [],
+    capabilities: { projects: on, sessions: on, openSession: on, newChat: off, details: off, mcp: off, voice: on, appPins: off },
+  };
 }
 
 export function parsePendingQuestion(value: unknown): PendingQuestion | undefined {
@@ -101,6 +171,7 @@ export function parseActiveSession(value: unknown): SessionDetails | undefined {
 
 export class CompanionClient {
   state?: VoiceState;
+  feed?: NavFeed;
   private navigation?: WebSocket;
   private sockets = new Map<ActionEndpoint, { socket: WebSocket; url: string }>();
   private pending = new Map<string, (status: string) => void>();
@@ -125,11 +196,16 @@ export class CompanionClient {
       this.navigation = socket;
       socket.on("message", (data) => {
         try {
-          const next = parseVoiceState(JSON.parse(data.toString()));
-          if (next && JSON.stringify(next) !== JSON.stringify(this.state)) { this.state = next; this.onChange(); }
+          const raw: unknown = JSON.parse(data.toString());
+          const next = parseVoiceState(raw);
+          const feed = parseNavFeed(raw);
+          let changed = false;
+          if (next && JSON.stringify(next) !== JSON.stringify(this.state)) { this.state = next; changed = true; }
+          if (feed && JSON.stringify(feed) !== JSON.stringify(this.feed)) { this.feed = feed; changed = true; }
+          if (changed) this.onChange();
         } catch { /* ignore malformed frames */ }
       });
-      socket.on("close", () => { if (this.navigation === socket) { this.navigation = undefined; this.state = undefined; this.onChange(); } });
+      socket.on("close", () => { if (this.navigation === socket) { this.navigation = undefined; this.state = undefined; this.feed = undefined; this.onChange(); } });
       socket.on("error", () => socket.terminate());
     } catch {
       this.state = undefined;

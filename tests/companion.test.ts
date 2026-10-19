@@ -53,7 +53,7 @@ test("active session details are parsed from the app feed", () => {
   assert.equal(tiles[2]!.value, "Auto → Claude Opus 5.5");
   assert.equal(tiles[4]!.gauge, 25);
   assert.equal(tiles[6]!.value, "1395.0");
-  assert.equal(tiles[9]!.label, "Live from app");
+  assert.equal(tiles[9]!.label, "Needs you");
   assert.equal(tiles[7]!.disabled, true);
   assert.match(board.detailsMessage ?? "", /Live values from the Copilot app/);
 });

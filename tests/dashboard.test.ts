@@ -37,7 +37,7 @@ test("session details never leak attached-session metrics onto another session",
   await board.press(2);
   await board.press(1);
   assert.equal(board.tiles()[2]?.value, "No bridge");
-  assert.equal(board.tiles()[9]?.label, "Bridge not running");
+  assert.equal(board.tiles()[9]?.label, "Needs you");
   assert.equal(board.tiles()[9]?.activity, "attention");
   assert.match(board.detailsMessage!, /stop an idle session's runtime/);
   assert.match(board.detailsMessage!, /Switching tabs does not guarantee/);
@@ -190,7 +190,9 @@ test("non-running sessions show saved history values without enabling MCP", asyn
   assert.equal(tiles[4]?.value, "69%");
   assert.equal(tiles[6]?.value, "20.6");
   assert.equal(tiles[7]?.disabled, true);
-  assert.equal(tiles[9]?.label, "Saved values");
+  assert.equal(tiles[9]?.label, "Needs you");
+  board.snapshot = { ...board.snapshot!, sessions: board.snapshot!.sessions.map((row) => row.id === id ? { ...row, activity: "unknown" as const } : row) };
+  assert.equal(board.tiles()[9]?.label, "Saved values");
   assert.match(board.detailsMessage!, /last saved values/);
 });
 

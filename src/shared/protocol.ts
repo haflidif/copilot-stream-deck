@@ -1,4 +1,4 @@
-export type Activity = "working" | "attention" | "idle" | "error" | "unknown";
+export type Activity = "working" | "attention" | "ready" | "idle" | "error" | "unknown";
 
 export interface Project {
   id: string;
@@ -128,7 +128,7 @@ export function parseSnapshot(value: unknown): Snapshot {
     sessions: obj.sessions.map((value) => {
       const row = record(value);
       if (row.kind !== "session" && row.kind !== "chat") throw new Error("Invalid session kind");
-      if (row.activity !== "working" && row.activity !== "attention" && row.activity !== "idle" &&
+      if (row.activity !== "working" && row.activity !== "attention" && row.activity !== "ready" && row.activity !== "idle" &&
           row.activity !== "error" && row.activity !== "unknown") throw new Error("Invalid session activity");
       return {
         id: text(row.id, "session id"), name: text(row.name, "session name"), kind: row.kind, activity: row.activity,

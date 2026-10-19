@@ -3,11 +3,11 @@ import streamDeck, {
   type KeyDownEvent, type KeyUpEvent, type KeyAction,
 } from "@elgato/streamdeck";
 import { BridgeClient } from "./client.js";
-import { CompanionClient } from "./companion.js";
+import { CompanionClient, withNavFeed } from "./companion.js";
 import { Dashboard } from "./dashboard.js";
 import { readSavedDetails } from "./history.js";
 import { tileDataUrl } from "./render.js";
-import { record, type Command } from "../shared/protocol.js";
+import { record, type Command, type Snapshot } from "../shared/protocol.js";
 
 type Settings = { favorites?: string[]; reducedMotion?: boolean; bridgeSessionId?: string };
 
@@ -20,6 +20,7 @@ class DashboardAction extends SingletonAction {
     for (const board of this.boards.values()) {
       const before = board.targetSessionId;
       board.voice = this.companion.state;
+      this.applyFeed(board);
       if (before !== board.targetSessionId) { board.loadingDetails = Boolean(board.targetSessionId); retarget = true; }
     }
     if (retarget) void this.refresh();
@@ -28,6 +29,7 @@ class DashboardAction extends SingletonAction {
   private talking = new Map<string, Promise<boolean>>();
   private voiceQueue: Promise<void> = Promise.resolve();
   private boards = new Map<string, Dashboard>();
+  private bridgeState = new WeakMap<Dashboard, { snapshot?: Snapshot; error?: string }>();
   private visible = new Map<string, KeyAction>();
   private images = new Map<string, string>();
   private timer?: ReturnType<typeof setInterval>;
@@ -186,6 +188,7 @@ class DashboardAction extends SingletonAction {
         this.applySettings(settings);
         for (const board of this.boards.values()) {
           board.snapshot = undefined;
+          this.bridgeState.delete(board);
           board.view = { type: "home", page: 0 };
         }
       }
@@ -220,15 +223,15 @@ class DashboardAction extends SingletonAction {
                 })
                 : undefined;
               if (target !== board.targetSessionId) continue;
-              board.snapshot = snapshot;
+              this.bridgeState.set(board, { snapshot });
               board.savedDetails = saved;
-              board.error = snapshot.errors.length ? snapshot.errors.join("\n") : undefined;
             } catch (error) {
               if (target !== board.targetSessionId) continue;
-              board.snapshot = undefined;
-              board.error = error instanceof Error ? error.message : String(error);
-              streamDeck.logger.error(board.error);
+              const message = error instanceof Error ? error.message : String(error);
+              this.bridgeState.set(board, { error: message });
+              if (!this.companion.feed) streamDeck.logger.error(message);
             }
+            this.applyFeed(board);
             board.loadingDetails = false;
             return;
           }
@@ -242,6 +245,16 @@ class DashboardAction extends SingletonAction {
       }
     })();
     return this.refreshing;
+  }
+
+  /** The app's navigation feed is the source of truth for projects and sessions; the bridge adds the rest. */
+  private applyFeed(board: Dashboard): void {
+    const state = this.bridgeState.get(board);
+    if (!state) return;
+    const feed = this.companion.feed;
+    const snapshot = feed ? withNavFeed(state.snapshot, feed, this.companion.state?.activeSessionId) : state.snapshot;
+    board.snapshot = snapshot;
+    board.error = snapshot ? (snapshot.errors.length ? snapshot.errors.join("\n") : undefined) : state.error;
   }
 
   private report(error: unknown): void {
