@@ -14,12 +14,14 @@ export interface Tile {
   recording?: boolean;
   /** Project colour token from the app, drawn as a strip on top of the tile. */
   accent?: string;
+  /** Just finished working; drawn as a green flashing border. */
+  flash?: boolean;
   action?: Action;
 }
 type View =
   | { type: "home"; page: number }
   | { type: "projects"; page: number }
-  | { type: "sessions"; page: number; projectId?: string; favorites?: boolean; chats?: boolean; attention?: boolean }
+  | { type: "sessions"; page: number; projectId?: string; favorites?: boolean; chats?: boolean; attention?: boolean; finished?: boolean; working?: boolean }
   | { type: "session"; page: number; id: string; follow?: boolean }
   | { type: "mcp"; page: number; sessionId: string }
   | { type: "confirm"; page: number; command: Command; label: string; sessionId?: string; request?: CompanionRequest }
@@ -47,6 +49,11 @@ export class Dashboard {
   voice?: VoiceState;
   private openRequestedId?: string;
   favorites = new Set<string>();
+  /** A finished session flashes until it is opened on the deck, or for at most this long. */
+  static readonly finishedMs = 5 * 60_000;
+  now: () => number = Date.now;
+  private lastActivity = new Map<string, string>();
+  private finishedAt = new Map<string, number>();
 
   constructor(
     private execute: (command: Command) => Promise<void>,
@@ -118,8 +125,28 @@ export class Dashboard {
     this.view = view;
   }
 
+  /** Notes sessions that went from working to idle or ready, so their tiles can flash for a moment. */
+  private trackFinished(sessions: Snapshot["sessions"]): void {
+    const now = this.now();
+    for (const session of sessions) {
+      if (this.lastActivity.get(session.id) === "working" && (session.activity === "idle" || session.activity === "ready")) {
+        this.finishedAt.set(session.id, now);
+      } else if (session.activity === "working") {
+        this.finishedAt.delete(session.id);
+      }
+      this.lastActivity.set(session.id, session.activity);
+    }
+    for (const [id, at] of this.finishedAt) if (now - at >= Dashboard.finishedMs) this.finishedAt.delete(id);
+  }
+
+  private finished(id: string): boolean {
+    return this.finishedAt.has(id);
+  }
+
   tiles(): Tile[] {
     const data = this.snapshot;
+    if (data) this.trackFinished(data.sessions);
+    if (this.view.type === "session") this.finishedAt.delete(this.sessionViewId(this.view));
     const tiles: Tile[] = Array.from({ length: 15 }, () => ({ label: "" }));
     const unavailable = (label: string, icon: Icon): Tile => ({ label, icon, disabled: true });
     const viewTile = (label: string, icon: Icon, view: View, disabled = false): Tile =>
@@ -148,7 +175,13 @@ export class Dashboard {
           value: String(data.sessions.filter((row) => row.activity === "attention").length),
           activity: data.sessions.some((row) => row.activity === "attention") ? "attention" : undefined,
         },
-        this.questionTile({ label: "Live sessions", value: String(data.sessions.filter((row) => row.activity === "working").length) }),
+        this.questionTile(this.finishedAt.size
+          ? { label: "Finished", icon: "check", activity: "ready", flash: true, value: this.finishedAt.size > 1 ? String(this.finishedAt.size) : undefined,
+            action: { type: "view", view: { type: "sessions", page: 0, finished: true } } }
+          : {
+            ...viewTile("Live sessions", "session", { type: "sessions", page: 0, working: true }, !data.capabilities.sessions.available),
+            value: String(data.sessions.filter((row) => row.activity === "working").length),
+          }),
       ];
     } else if (this.view.type === "projects") {
       items = data.projects.map((project) => ({ ...viewTile(project.name, "folder", { type: "sessions", projectId: project.id, page: 0 }), accent: project.accent }));
@@ -157,10 +190,10 @@ export class Dashboard {
       items = data.sessions
         .filter((session) => (!view.projectId || session.projectId === view.projectId) &&
           (!view.favorites || session.pinned || this.favorites.has(session.id)) && (!view.chats || session.kind === "chat") &&
-          (!view.attention || session.activity === "attention"))
+          (!view.attention || session.activity === "attention") && (!view.finished || this.finished(session.id)) && (!view.working || session.activity === "working"))
         .map((session) => ({
           ...viewTile(session.name, "session", { type: "session", id: session.id, page: 0 }),
-          value: initials(session.name), activity: session.activity,
+          value: initials(session.name), activity: session.activity, flash: this.finished(session.id),
           accent: session.accent ?? data.projects.find((project) => project.id === session.projectId)?.accent,
         }));
     } else if (this.view.type === "session") {

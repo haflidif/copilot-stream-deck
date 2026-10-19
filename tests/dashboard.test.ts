@@ -221,6 +221,45 @@ test("Needs you counts and filters sessions waiting on the user", async () => {
   assert.deepEqual(board.tiles().slice(0, 10).filter((row) => row.action).map((row) => row.label), waiting.map((row) => row.name));
 });
 
+test("a session that stops working flashes for a moment, but not on first load", async () => {
+  const { board } = setup();
+  let now = 1000;
+  board.now = () => now;
+  const working = board.snapshot!.sessions.find((row) => row.activity === "working")!;
+  assert.ok(working);
+  assert.equal(board.tiles()[9]!.label, "Live sessions");
+  board.snapshot = { ...board.snapshot!, sessions: board.snapshot!.sessions.map((row) => row.id === working.id ? { ...row, activity: "idle" } : row) };
+  const home = board.tiles()[9]!;
+  assert.equal(home.label, "Finished");
+  assert.equal(home.flash, true);
+  assert.match(renderTile(home, 0), /stroke="#5be3a5" stroke-width="5"/);
+  await board.press(9);
+  assert.deepEqual(board.tiles().filter((row) => row.action?.type === "view").map((row) => [row.label, row.flash]), [[working.name, true]]);
+  now += Dashboard.finishedMs;
+  assert.equal(board.tiles().some((row) => row.flash), false);
+});
+
+test("opening a finished session on the deck clears its flash", async () => {
+  const { board } = setup();
+  const working = board.snapshot!.sessions.find((row) => row.activity === "working")!;
+  board.tiles();
+  board.snapshot = { ...board.snapshot!, sessions: board.snapshot!.sessions.map((row) => row.id === working.id ? { ...row, activity: "idle" } : row) };
+  await board.press(9);
+  await board.press(0);
+  board.tiles();
+  await board.press(10);
+  await board.press(10);
+  assert.equal(board.view.type, "home");
+  assert.equal(board.tiles()[9]!.label, "Live sessions");
+});
+
+test("Live sessions opens the sessions that are working", async () => {
+  const { board } = setup();
+  const working = board.snapshot!.sessions.filter((row) => row.activity === "working");
+  await board.press(9);
+  assert.deepEqual(board.tiles().filter((row) => row.action?.type === "view").map((row) => row.label), working.map((row) => row.name));
+});
+
 test("attention tiles pulse unless motion is reduced", () => {
   const tile = { label: "Other session", value: "OS", activity: "attention" as const };
   const dim = renderTile(tile, 0);

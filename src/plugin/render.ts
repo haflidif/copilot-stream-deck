@@ -90,6 +90,8 @@ export function renderTile(tile: Tile, frame = 0, reducedMotion = false): string
       const level = [0.15, 0.3, 0.5, 0.7, 0.9, 1, 1, 0.9, 0.7, 0.5, 0.3, 0.15][((frame % 12) + 12) % 12]!;
       return `<rect x="3" y="3" width="138" height="138" rx="12" fill="none" stroke="${color}" stroke-width="4" opacity="${level}"/>`;
     })()
+    : tile.flash && !tile.disabled
+      ? `<rect x="3" y="3" width="138" height="138" rx="12" fill="none" stroke="#5be3a5" stroke-width="5" opacity="${reducedMotion ? 1 : [1, 0.85, 0.6, 0.4, 0.6, 0.85][((frame % 6) + 6) % 6]}"/>`
     : tile.recording ? `<rect x="3" y="3" width="138" height="138" rx="12" fill="none" stroke="${color}" stroke-width="4"/>`
       : tile.selected ? `<rect x="2.5" y="2.5" width="139" height="139" rx="12" fill="none" stroke="${color}" stroke-width="3"/>` : "";
   const strip = accent ? `<rect width="144" height="12" fill="${accent}" clip-path="url(#tile)"/>` : "";

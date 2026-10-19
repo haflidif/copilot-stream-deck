@@ -9,6 +9,8 @@ This is a working starter, not feature parity with Logitech's Copilot integratio
 - A position-aware 5-by-3 dashboard with project and session browsing, paging, Back and Home.
 - Animated blue-dot session tiles, readable labels, attention/error indicators and reduced motion.
 - Sessions waiting for you get a pulsing amber border, and a **Needs you** home tile counts them and opens the list.
+- When a session finishes working, its tile flashes green and a **Finished** home tile takes you to it. The flash stays until you open the session on the deck, or for 5 minutes.
+- **Live sessions** counts the sessions that are working and lists them when pressed.
 - Context use is shown as a ring that turns amber from 60% and red from 85%.
 - App-wide project and session status, refreshed approximately every five seconds while keys are visible.
 - Opening existing sessions in the app.
