@@ -97,6 +97,6 @@ This project is not an official GitHub or Elgato product. The six-dot graphics a
 
 ## Icons
 
-Tile icons come from [GitHub Primer Octicons](https://github.com/primer/octicons) (MIT License, Copyright GitHub Inc.). `npm run icons` regenerates `src/plugin/icons.ts` with only the icons the deck uses.
+Tile icons come from [GitHub Primer Octicons](https://github.com/primer/octicons) (MIT License, Copyright GitHub Inc.). `npm run icons` regenerates `src/plugin/icons.ts` with only the icons the deck uses. "Open in app" uses the GitHub mark and the session keys use the Copilot icon. Icons and values are coloured with GitHub Primer colours, and the Copilot icon uses a purple to blue gradient. Status colours (attention, error, finished) and project colours always take priority. The GitHub and Copilot marks are trademarks of GitHub, Inc.
 
 The Model key shows the provider's logo (Anthropic Claude, OpenAI, Google Gemini, xAI Grok, Microsoft, and the GitHub Copilot mark for Auto) above a short model name. The logos come from [LobeHub Icons](https://github.com/lobehub/lobe-icons) (MIT License) and are kept in `src/plugin/brands.ts`. They are trademarks of their owners and are only used to show where a model comes from. This project is not affiliated with or endorsed by any of them. See [NOTICE.md](NOTICE.md).
