@@ -1,5 +1,5 @@
 import { decodeToolResult, deadline, openSessionLink, validateSessionLink, type JoinedSession } from "./app-tools.js";
-import { finite, record, text, type AppSession, type Command, type McpServer, type Project, type Snapshot } from "../shared/protocol.js";
+import { finite, record, text, type AppSession, type Command, type McpServer, type ModelOption, type Project, type Snapshot } from "../shared/protocol.js";
 
 export function normalizeSessions(value: unknown): AppSession[] {
   const rows = record(value).sessions;
@@ -58,6 +58,7 @@ export class AppProvider {
   private names = new Set<string>();
   private projects?: { time: number; value: Project[] };
   private nested?: { time: number; value: Map<string, AppSession & { parentId: string }> };
+  private models?: { time: number; value: ModelOption[] };
   private unsubscribe: () => void;
 
   constructor(private session: JoinedSession, private openLink = openSessionLink) {
@@ -91,9 +92,10 @@ export class AppProvider {
         details: { available: false }, mcp: { available: false },
         voice: { available: false, reason: "No verified Copilot app voice-control API" },
         appPins: { available: false, reason: "No verified Copilot app pinned-chat API. Favorites are local to this plugin." },
+        model: { available: false },
       },
     };
-    const attempt = async (name: "projects" | "sessions" | "details" | "mcp", run: () => Promise<void>) => {
+    const attempt = async (name: "projects" | "sessions" | "details" | "mcp" | "model", run: () => Promise<void>) => {
       try {
         await run();
         snapshot.capabilities[name] = { available: true };
@@ -157,13 +159,20 @@ export class AppProvider {
         snapshot.details = {
           id: this.session.sessionId, name: String(metadata.summary ?? metadata.initialName ?? "Attached session"),
           model: typeof model.modelId === "string" ? model.modelId : undefined,
-          reasoning: typeof model.reasoningEffort === "string" ? model.reasoningEffort : undefined,
+          reasoning: model.modelId === "auto" && typeof model.autoTier === "string" ? model.autoTier
+            : typeof model.reasoningEffort === "string" ? model.reasoningEffort : undefined,
           contextTier: typeof model.contextTier === "string" ? model.contextTier : undefined,
           contextLimit: limit,
           contextPercent: limit && tokens !== undefined ? tokens / limit * 100 : undefined,
           aiCredits: nano !== undefined && nano >= 0 ? nano / 1e9 : undefined,
           creditsStatus: typeof usage.aiCreditsStatus === "string" ? usage.aiCreditsStatus : undefined,
         };
+      }),
+      attempt("model", async () => {
+        if (!this.models || Date.now() - this.models.time > 300000) {
+          this.models = { value: normalizeModels(await deadline(this.session.rpc.model.list())), time: Date.now() };
+        }
+        snapshot.models = this.models.value;
       }),
       attempt("mcp", async () => {
         const result = record(await deadline(this.session.rpc.mcp.listConfigured()));
@@ -213,9 +222,49 @@ export class AppProvider {
           ? this.session.rpc.mcp.enable({ serverName: command.name })
           : this.session.rpc.mcp.disable({ serverName: command.name }));
         break;
+      case "setModel": {
+        const model = snapshot.models?.find((row) => row.id === command.modelId);
+        if (!snapshot.capabilities.model.available || !model) throw new Error("Model is no longer available");
+        if (command.reasoning && !model.efforts.includes(command.reasoning)) throw new Error(`${model.name} does not support ${command.reasoning}`);
+        // For Auto the reasoning slot carries the Auto tier (efficiency, balance, intelligence).
+        const result = record(await deadline(this.session.rpc.model.switchTo({
+          modelId: command.modelId, source: "model_picker", deferIfModelChangeQueued: true,
+          ...(command.reasoning ? command.modelId === "auto" ? { autoTier: command.reasoning } : { reasoningEffort: command.reasoning } : {}),
+        })));
+        // The runtime asks for confirmation when the conversation is larger than the new model's context.
+        if (result.confirmation) throw new Error(`The conversation is too large for ${model.name}. Switch in the app instead.`);
+        if (typeof result.status === "string" && /fail|reject|error|denied/i.test(result.status)) {
+          throw new Error(typeof result.message === "string" ? result.message : `Model switch ${result.status}`);
+        }
+        break;
+      }
     }
     this.last = undefined;
   }
+}
+
+/** Reads the session model catalog, skipping models that policy disables. Auto always comes first, with its tiers as options. */
+export function normalizeModels(value: unknown): ModelOption[] {
+  const catalog = record(value);
+  const list = catalog.list;
+  if (!Array.isArray(list)) throw new Error("No model list");
+  const models = list.flatMap((item): ModelOption[] => {
+    if (item === null || typeof item !== "object" || Array.isArray(item)) return [];
+    const row = item as Record<string, unknown>;
+    if (typeof row.id !== "string" || !row.id || row.id === "auto") return [];
+    const policy = row.policy && typeof row.policy === "object" ? (row.policy as Record<string, unknown>).state : undefined;
+    if (policy === "disabled") return [];
+    const efforts = Array.isArray(row.supportedReasoningEfforts)
+      ? row.supportedReasoningEfforts.filter((effort): effort is string => typeof effort === "string" && !!effort) : [];
+    return [{ id: row.id, name: typeof row.name === "string" && row.name ? row.name : row.id, efforts }];
+  });
+  const auto = catalog.auto && typeof catalog.auto === "object" ? (catalog.auto as Record<string, unknown>).tiers : undefined;
+  const tiers = Array.isArray(auto) ? auto.flatMap((tier) => {
+    const row = tier && typeof tier === "object" ? tier as Record<string, unknown> : {};
+    const status = row.status && typeof row.status === "object" ? row.status as Record<string, unknown> : {};
+    return typeof row.id === "string" && row.id && status.enabled !== false && (row.type === undefined || row.type === "auto") ? [row.id] : [];
+  }) : [];
+  return [{ id: "auto", name: "Auto", efforts: tiers.length ? tiers : ["efficiency", "balance", "intelligence"] }, ...models];
 }
 
 function assertToolSuccess(value: unknown): void {

@@ -45,6 +45,12 @@ export interface McpServer {
   status: string;
 }
 
+export interface ModelOption {
+  id: string;
+  name: string;
+  efforts: string[];
+}
+
 export interface Snapshot {
   version: 1;
   capturedAt: string;
@@ -53,14 +59,17 @@ export interface Snapshot {
   sessions: AppSession[];
   details?: SessionDetails;
   mcp: McpServer[];
-  capabilities: Record<"projects" | "sessions" | "openSession" | "newChat" | "details" | "mcp" | "voice" | "appPins", Capability>;
+  /** Models the session can switch to. Older bridges do not send it. */
+  models?: ModelOption[];
+  capabilities: Record<"projects" | "sessions" | "openSession" | "newChat" | "details" | "mcp" | "voice" | "appPins" | "model", Capability>;
   errors: string[];
 }
 
 export type Command =
   | { type: "openSession"; id: string }
   | { type: "newChat" }
-  | { type: "setMcp"; name: string; enabled: boolean };
+  | { type: "setMcp"; name: string; enabled: boolean }
+  | { type: "setModel"; modelId: string; reasoning?: string };
 
 export interface BridgeDescriptor {
   version: 1;
@@ -96,6 +105,9 @@ export function parseCommand(value: unknown): Command {
     case "setMcp":
       if (typeof obj.enabled !== "boolean") throw new Error("Invalid MCP enabled state");
       return { type: "setMcp", name: text(obj.name, "MCP name"), enabled: obj.enabled };
+    case "setModel":
+      if (obj.reasoning !== undefined && typeof obj.reasoning !== "string") throw new Error("Invalid reasoning effort");
+      return { type: "setModel", modelId: text(obj.modelId, "model id"), ...(obj.reasoning ? { reasoning: obj.reasoning } : {}) };
     default:
       throw new Error("Unsupported command");
   }
@@ -119,6 +131,7 @@ export function parseSnapshot(value: unknown): Snapshot {
       !Array.isArray(obj.mcp) || !Array.isArray(obj.errors)) throw new Error("Incompatible bridge response");
   const raw = record(obj.capabilities);
   const capability = (key: keyof Snapshot["capabilities"]): Capability => {
+    if (key === "model" && raw[key] === undefined) return { available: false, reason: "Bridge is out of date" };
     const value = record(raw[key]);
     if (typeof value.available !== "boolean") throw new Error(`Invalid ${key} capability`);
     return { available: value.available, reason: typeof value.reason === "string" ? value.reason : undefined };
@@ -148,11 +161,16 @@ export function parseSnapshot(value: unknown): Snapshot {
       if (typeof row.enabled !== "boolean") throw new Error("Invalid MCP state");
       return { name: text(row.name, "MCP name"), enabled: row.enabled, status: text(row.status, "MCP status") };
     }),
+    ...(Array.isArray(obj.models) ? { models: obj.models.map((value) => {
+      const row = record(value);
+      return { id: text(row.id, "model id"), name: text(row.name, "model name"),
+        efforts: Array.isArray(row.efforts) ? row.efforts.filter((effort): effort is string => typeof effort === "string" && !!effort) : [] };
+    }) } : {}),
     errors: obj.errors.map((value) => text(value, "error")),
     capabilities: {
       projects: capability("projects"), sessions: capability("sessions"), openSession: capability("openSession"),
       newChat: capability("newChat"), details: capability("details"), mcp: capability("mcp"),
-      voice: capability("voice"), appPins: capability("appPins"),
+      voice: capability("voice"), appPins: capability("appPins"), model: capability("model"),
     },
     details: details ? {
       id: text(details.id, "details id"), name: text(details.name, "details name"),

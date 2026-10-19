@@ -35,6 +35,8 @@ type View =
   | { type: "sessions"; page: number; projectId?: string; favorites?: boolean; chats?: boolean; attention?: boolean; finished?: boolean; working?: boolean; parentId?: string }
   | { type: "session"; page: number; id: string; follow?: boolean }
   | { type: "mcp"; page: number; sessionId: string }
+  | { type: "models"; page: number; sessionId: string }
+  | { type: "reasoning"; page: number; sessionId: string; modelId?: string }
   | { type: "confirm"; page: number; command: Command; label: string; sessionId?: string; request?: CompanionRequest }
   | { type: "question"; page: number };
 type Action =
@@ -98,7 +100,7 @@ export class Dashboard {
 
   get targetSessionId(): string | undefined {
     return this.view.type === "session" ? this.sessionViewId(this.view)
-      : this.view.type === "mcp" || this.view.type === "confirm" ? this.view.sessionId : undefined;
+      : this.view.type === "mcp" || this.view.type === "confirm" || this.view.type === "models" || this.view.type === "reasoning" ? this.view.sessionId : undefined;
   }
 
   get detailsMessage(): string | undefined {
@@ -255,11 +257,16 @@ export class Dashboard {
       const details = own ? data.details : appLive ?? saved;
       const missing = this.loadingDetails && !appLive ? "Loading" : own || saved || appLive ? "Unavailable" : "No bridge";
       const requested = this.openRequestedId === id;
+      // Switching needs this session's own bridge; the app's companion API has no model control.
+      const pickable = own && data.capabilities.model.available && !!data.models?.length;
+      const efforts = pickable ? data.models!.find((model) => model.id === details?.model)?.efforts ?? [] : [];
       items = [
         { label: requested ? "Open requested" : "Open in app", icon: "open", disabled: requested || !data.capabilities.openSession.available || !session, action: { type: "command", command: { type: "openSession", id } } },
         { label: this.favorites.has(id) ? "Unfavorite" : "Favorite", icon: "star", selected: this.favorites.has(id), action: { type: "favorite", id } },
-        { ...modelTile(details?.model), value: details?.model ?? missing, ...(details?.model ? {} : { tone: "muted" as Tone }) },
-        { label: "Reasoning", value: details ? details.reasoning ?? "Default" : missing, tone: details ? "copilot" : "muted", disabled: !details },
+        { ...modelTile(details?.model), value: details?.model ?? missing, ...(details?.model ? {} : { tone: "muted" as Tone }),
+          ...(pickable ? { action: { type: "view" as const, view: { type: "models" as const, page: 0, sessionId: id } } } : {}) },
+        { label: details?.model === "auto" ? "Auto mode" : "Reasoning", value: details ? details.reasoning ?? "Default" : missing, tone: details ? "copilot" : "muted", disabled: !details,
+          ...(efforts.length ? { action: { type: "view" as const, view: { type: "reasoning" as const, page: 0, sessionId: id } } } : {}) },
         { label: "Context used", value: details?.contextPercent === undefined ? missing : `${details.contextPercent.toFixed(0)}%`, gauge: details?.contextPercent, ring: this.easeRing(id, details?.contextPercent) },
         { label: "Context limit", value: details?.contextLimit === undefined ? missing : formatTokens(details.contextLimit), tone: details?.contextLimit === undefined ? "muted" : "blue" },
         { label: details?.creditsStatus === "complete" ? "AI credits" : details ? "Credits (partial)" : "AI credits", value: details?.aiCredits === undefined ? missing : details.aiCredits.toFixed(1), tone: details?.aiCredits === undefined ? "muted" : "gold" },
@@ -271,6 +278,31 @@ export class Dashboard {
             ? { label: "Needs you", icon: "session", activity: "attention", action: { type: "command", command: { type: "openSession", id } } }
             : { label: this.loadingDetails && !appLive ? "Loading details" : statusLabel(session?.activity) ?? (own ? "Session status" : appLive ? "Live from app" : saved ? "Saved values" : "Bridge not running"), icon: "session", activity: session?.activity ?? "unknown" },
       ];
+    } else if (this.view.type === "models" || this.view.type === "reasoning") {
+      const sessionId = this.view.sessionId;
+      const current = data.bridgeSessionId === sessionId ? data.details : undefined;
+      const models = data.bridgeSessionId === sessionId && data.capabilities.model.available ? data.models ?? [] : [];
+      if (this.view.type === "models") {
+        items = models.map((model): Tile => ({
+          ...modelTile(model.id), ...(modelTile(model.id).provider ? {} : { label: model.name, value: model.name }),
+          selected: model.id === current?.model,
+          // Auto has no meaning without a mode, so pick the mode first and then confirm.
+          action: model.id === "auto" && model.efforts.length
+            ? { type: "view", view: { type: "reasoning", page: 0, sessionId, modelId: "auto" } }
+            : { type: "view", view: { type: "confirm", page: 0, sessionId,
+              command: { type: "setModel", modelId: model.id }, label: `Switch to ${model.name}?` } },
+        }));
+      } else {
+        const target = this.view.modelId ?? current?.model;
+        const model = models.find((row) => row.id === target);
+        const onModel = model?.id === current?.model;
+        items = (model?.efforts ?? []).map((effort): Tile => ({
+          label: effort[0]!.toUpperCase() + effort.slice(1), icon: model!.id === "auto" ? "copilot" : "sparkle",
+          selected: onModel && effort === current?.reasoning,
+          action: { type: "view", view: { type: "confirm", page: 0, sessionId,
+            command: { type: "setModel", modelId: model!.id, reasoning: effort }, label: model!.id === "auto" ? `Auto: ${effort}?` : `Reasoning: ${effort}?` } },
+        }));
+      }
     } else if (this.view.type === "mcp") {
       const sessionId = this.view.sessionId;
       const app = this.appMcp(sessionId);
@@ -320,7 +352,7 @@ export class Dashboard {
           ? { type: "companion", request }
           : { type: "command", command } },
         { label: "Cancel", icon: "back", action: { type: "back" } },
-        { label: this.view.label, icon: this.view.command.type === "setMcp" ? "grid" : "plus" },
+        { label: this.view.label, icon: this.view.command.type === "setMcp" ? "grid" : this.view.command.type === "setModel" ? "copilot" : "plus" },
       ];
     }
     const maxPage = Math.max(0, Math.ceil(items.length / 10) - 1);

@@ -17,6 +17,7 @@ This is a working starter, not feature parity with Logitech's Copilot integratio
 - Opening existing sessions in the app.
 - A confirmed action to create an idle standalone local chat, without starting an agent or creating a code checkout.
 - Model, reasoning, context usage, context limit and AI credits for the session running the bridge. The Model key shows the provider logo and a short name, for example "GPT-6 Astra" or "Auto: Opus 5.5".
+- Model switching (experimental): press the Model key to pick a model, then confirm. Auto asks for a mode first (Efficiency, Balance or Intelligence), and for other models the Reasoning key offers the levels that model supports. The change applies to the session, but the Copilot app's model picker keeps showing its old choice because it does not follow changes made outside the app. Only works for the session running the bridge.
 - Confirmed MCP enable/disable controls. For the session active in the app they use the app's own MCP list and toggle, with no bridge needed. Servers the app locks (for example by policy) are shown but cannot be changed.
 - Local favorites, stored in Stream Deck plugin settings, shown together with the sessions pinned in the app.
 - An authenticated loopback bridge, with no GitHub credentials entered into Stream Deck.
@@ -24,7 +25,7 @@ This is a working starter, not feature parity with Logitech's Copilot integratio
 **Push to talk:** the mic tile uses the Copilot app's "Companion device integration" experiment (Settings, Experiments), the same local API the Logitech keypad uses. Turn it on and install the app's voice model. Hold the key to talk, release to stop. Dictation goes to the session that is active in the app window. The same feed gives live model, reasoning, context and credits for the session open in the app window, so that session shows live values even without its bridge. This API is undocumented and may change. With the experiment on, the home "This session" key becomes "Active session" and always follows the session open in the app window. "Open in app" switches sessions directly through the app (no deep link), and "New" offers "In this project" (a new session in the project the app window is showing) or "New chat" (a standalone chat, through the bridge).
 **Answer questions:** when the session open in the app window is waiting on a question, the home "Live sessions" key turns into a pulsing "Answer question" key. Press it to get one key per choice (the app only shares the start of each label), plus "Type answer" when free text is allowed, which moves focus to the app's answer box. A choice is sent as soon as you press it. This uses the same companion API.
 
-**Not connected yet:** pinning or unpinning from the deck, model/reasoning selection, and MCP control for sessions that are neither active in the app nor running a bridge. Unavailable features are explicitly marked. Idle does not mean completed.
+**Not connected yet:** pinning or unpinning from the deck, model selection for sessions without a running bridge, and MCP control for sessions that are neither active in the app nor running a bridge. Unavailable features are explicitly marked. Idle does not mean completed.
 
 See [the integration findings](docs/integration.md) for the complete feature matrix and remaining work.
 

@@ -211,6 +211,43 @@ test("loopback bridge requires authentication, rejects browser origins, and disp
   }
 });
 
+test("model catalog puts Auto first with its tiers and switches like the app picker", async () => {
+  const session = joinedSession();
+  const calls: unknown[] = [];
+  session.rpc.model.switchTo = async (params) => { calls.push(params); return { status: "switched" }; };
+  session.rpc.model.getCurrent = async () => ({ modelId: "auto", autoTier: "balance", reasoningEffort: "low" });
+  const provider = new AppProvider(session);
+  const loaded = await provider.snapshot();
+  assert.equal(loaded.capabilities.model.available, true);
+  assert.deepEqual(loaded.models, [
+    { id: "auto", name: "Auto", efforts: ["efficiency", "balance"] },
+    { id: "claude-sonnet-5", name: "Claude Sonnet 5", efforts: ["low", "medium", "high"] },
+  ]);
+  assert.equal(loaded.details?.reasoning, "balance");
+  await provider.command({ type: "setModel", modelId: "claude-sonnet-5", reasoning: "high" });
+  await provider.command({ type: "setModel", modelId: "auto", reasoning: "efficiency" });
+  const base = { source: "model_picker", deferIfModelChangeQueued: true };
+  assert.deepEqual(calls, [
+    { modelId: "claude-sonnet-5", ...base, reasoningEffort: "high" },
+    { modelId: "auto", ...base, autoTier: "efficiency" },
+  ]);
+  await assert.rejects(provider.command({ type: "setModel", modelId: "blocked" }), /no longer available/);
+  await assert.rejects(provider.command({ type: "setModel", modelId: "auto", reasoning: "high" }), /does not support/);
+  session.rpc.model.switchTo = async () => ({ status: "pending", confirmation: { targetModelDisplayName: "Auto" } });
+  await assert.rejects(provider.command({ type: "setModel", modelId: "claude-sonnet-5" }), /too large/);
+});
+
+test("protocol accepts setModel and tolerates bridges without the model capability", () => {
+  assert.deepEqual(parseCommand({ type: "setModel", modelId: "auto", reasoning: "high" }), { type: "setModel", modelId: "auto", reasoning: "high" });
+  assert.throws(() => parseCommand({ type: "setModel" }), /model id/);
+  const old: Record<string, unknown> = { ...snapshot() };
+  delete old.models;
+  delete (old.capabilities as Record<string, unknown>).model;
+  const parsed = parseSnapshot(old);
+  assert.equal(parsed.capabilities.model.available, false);
+  assert.equal(parsed.models, undefined);
+});
+
 test("protocol rejects invalid addresses, command state, and malformed snapshots", () => {
   assert.throws(() => parseDescriptor({ version: 1, port: 90000, token: "x" }), /Invalid/);
   assert.throws(() => parseCommand({ type: "setMcp", name: "example", enabled: "false" }), /Invalid/);

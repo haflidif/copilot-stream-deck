@@ -71,7 +71,7 @@ class DashboardAction extends SingletonAction {
       if (created) void this.openCreated(created);
       return;
     }
-    await this.client.command(command, command.type === "setMcp" ? board.targetSessionId : undefined);
+    await this.client.command(command, command.type === "setMcp" || command.type === "setModel" ? board.targetSessionId : undefined);
   }
 
   /** Switches the app to a session the deck just created. A new chat can take several seconds before the app can open it. */

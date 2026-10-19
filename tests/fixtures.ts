@@ -16,7 +16,12 @@ export function snapshot(): Snapshot {
       projects: { available: true }, sessions: { available: true }, openSession: { available: true },
       newChat: { available: true }, details: { available: true }, mcp: { available: true },
       voice: { available: false, reason: "No API" }, appPins: { available: false, reason: "No API" },
-    },
+            model: { available: true },
+          },
+          models: [
+            { id: "auto", name: "Auto", efforts: ["efficiency", "balance", "intelligence"] },
+            { id: "claude-sonnet-5", name: "Claude Sonnet 5", efforts: ["low", "medium", "high"] },
+          ],
     errors: [],
   };
 }
@@ -36,7 +41,19 @@ export function joinedSession(): JoinedSession {
             ] }) : name === "list_sessions_and_chats" ? JSON.stringify([{ id: "attached", app_url: "ghapp://sessions/attached" }]) : "Done",
         }),
       },
-      model: { getCurrent: async () => ({ modelId: "auto", reasoningEffort: "high", contextTier: "default" }) },
+      model: {
+        getCurrent: async () => ({ modelId: "auto", reasoningEffort: "high", contextTier: "default" }),
+        list: async () => ({ list: [
+          { id: "auto", name: "Auto" },
+          { id: "claude-sonnet-5", name: "Claude Sonnet 5", supportedReasoningEfforts: ["low", "medium", "high"], policy: { state: "enabled" } },
+          { id: "blocked", name: "Blocked", policy: { state: "disabled" } },
+        ], auto: { defaultTier: "balance", tiers: [
+          { id: "efficiency", type: "auto", status: { enabled: true } },
+          { id: "balance", type: "auto", status: { enabled: true } },
+          { id: "fast", type: "auto", status: { enabled: false } },
+        ] } }),
+        switchTo: async () => ({ status: "switched" }),
+      },
       metadata: {
         snapshot: async () => ({ summary: "Example session" }),
         contextInfo: async () => ({ contextInfo: { totalTokens: 50000, limit: 200000 } }),

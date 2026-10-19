@@ -53,6 +53,52 @@ test("context ring fills up from empty, eases to new values, and jumps with redu
   assert.equal(board.tiles()[4]!.ring, goal);
 });
 
+test("model and reasoning pickers confirm before switching this session", async () => {
+  const { board, commands } = setup();
+  await board.press(6);
+  assert.ok(board.tiles()[2]?.action);
+  assert.equal(board.tiles()[3]?.label, "Auto mode");
+  assert.ok(board.tiles()[3]?.action);
+  await board.press(2);
+  assert.equal(String(board.view.type), "models");
+  assert.equal(board.tiles()[0]?.selected, true);
+  await board.press(1);
+  assert.equal(String(board.view.type), "confirm");
+  assert.equal(board.tiles()[2]?.label, "Switch to Claude Sonnet 5?");
+  await board.press(0);
+  assert.deepEqual(commands.at(-1), { type: "setModel", modelId: "claude-sonnet-5" });
+  assert.equal(board.targetSessionId, "attached");
+
+  board.snapshot = { ...snapshot(), details: { ...snapshot().details!, model: "claude-sonnet-5", reasoning: "low" } };
+  board.view = { type: "reasoning", page: 0, sessionId: "attached" };
+  assert.deepEqual(board.tiles().slice(0, 3).map((tile) => tile.label), ["Low", "Medium", "High"]);
+  assert.equal(board.tiles()[0]?.selected, true);
+  await board.press(2);
+  await board.press(0);
+  assert.deepEqual(commands.at(-1), { type: "setModel", modelId: "claude-sonnet-5", reasoning: "high" });
+});
+
+test("Auto in the model list asks for a mode before confirming", async () => {
+  const { board, commands } = setup();
+  board.snapshot = { ...snapshot(), details: { ...snapshot().details!, model: "claude-sonnet-5" } };
+  board.view = { type: "models", page: 0, sessionId: "attached" };
+  await board.press(0);
+  assert.equal(String(board.view.type), "reasoning");
+  assert.deepEqual(board.tiles().slice(0, 3).map((tile) => tile.label), ["Efficiency", "Balance", "Intelligence"]);
+  assert.equal(board.tiles().some((tile) => tile.selected), false);
+  await board.press(2);
+  assert.equal(board.tiles()[2]?.label, "Auto: intelligence?");
+  await board.press(0);
+  assert.deepEqual(commands.at(-1), { type: "setModel", modelId: "auto", reasoning: "intelligence" });
+});
+
+test("model picker stays off for other sessions", async () => {
+  const { board } = setup();
+  await board.press(2);
+  await board.press(1);
+  assert.equal(board.tiles()[2]?.action, undefined);
+});
+
 test("session details never leak attached-session metrics onto another session", async () => {
   const { board } = setup();
   await board.press(2);

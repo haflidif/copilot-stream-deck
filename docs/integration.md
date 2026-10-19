@@ -31,7 +31,7 @@ The initial live probe successfully returned the app's configured projects, its 
 | Sub-sessions | "+N" pill on the parent; pressing it lists the parent and its sub-sessions | Bridge `list_sessions_and_chats` (`coordinating_creator_session_id`, then `creator_session_id`), cached for 60 seconds | The navigation snapshot only contains top-level sessions, so sub-sessions need a running bridge. A parent only counts when it is in the same catalog. Sub-session status comes from `get_sessions_status` (about five seconds behind the feed). |
 | Live sessions | Home tile with the number of working sessions; pressing it lists them | Session status `running` | |
 | App-pinned chats | Home "Pinned" tile | Navigation snapshot `collections.pinned` | Read-only. Shows the sessions pinned in the app sidebar, in app order, together with the deck's local Favorites. Pinning and unpinning still happen in the app; without the companion feed the tile falls back to local Favorites. |
-| Model/reasoning changes | Selection screens | Installed SDK declares model list/switch and reasoning methods | Feasible follow-on, not wired. Needs model-specific allowed values, policy handling and busy-session behavior before adding controls. |
+| Model/reasoning changes | Model and Reasoning/Auto mode screens, then confirm | `session.rpc.model.list()`, `switchTo({modelId, reasoningEffort or autoTier, source: "model_picker", deferIfModelChangeQueued: true})` | Implemented (experimental) for the bridge session. Policy-disabled models are hidden, Auto tiers come from the catalog, and a switch that needs compaction is refused with "switch in the app". Verified live from session usage records. The app's model picker does not reflect outside changes. |
 | App-aware layouts | Stream Deck app-associated profiles | Does not require a Copilot API | Manual profile association supported by Stream Deck. Not automatically installed or configured by this starter. |
 | VS Code actions | Stream Deck hotkeys or a VS Code extension | VS Code commands/extension | Separate profile, not included in this starter. Context-aware editor actions need an editor integration rather than pretending the Copilot app API supplies editor selection. |
 | Drag/drop actions and macros | Native Stream Deck configuration / Multi Actions | Depends on each action | Dashboard tiles are position-aware and require a dedicated 15-key page. They intentionally opt out of Multi Actions. Standalone configurable actions can follow separately. |
@@ -75,7 +75,7 @@ Navigation fetches the selected session's `app_url` through `list_sessions_and_c
 
 - An app pin catalog and pin/unpin API.
 - A supported app-wide detail API for sessions that do not have a running extension bridge.
-- A model/reasoning/context picker respecting the host's actual catalog, limits and policy.
+- A context tier picker, and syncing the app's model picker after a deck switch.
 - A user-exported, hardware-verified default Stream Deck profile for easier setup, standalone configurable actions, and an optional VS Code integration.
 - Physical checks of legibility, animation timing, navigation and reconnect behavior on the 15-key device.
 

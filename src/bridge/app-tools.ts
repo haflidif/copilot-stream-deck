@@ -56,7 +56,11 @@ export interface JoinedSession {
       getCurrentMetadata(): Promise<unknown>;
       execute(params: { name: string; arguments: Record<string, unknown> }): Promise<unknown>;
     };
-    model: { getCurrent(): Promise<unknown> };
+    model: {
+      getCurrent(): Promise<unknown>;
+      list(): Promise<unknown>;
+      switchTo(params: { modelId: string; reasoningEffort?: string; autoTier?: string; source?: string; deferIfModelChangeQueued?: boolean }): Promise<unknown>;
+    };
     metadata: { snapshot(): Promise<unknown>; contextInfo(params: { promptTokenLimit: number; outputTokenLimit: number }): Promise<unknown> };
     usage: { getMetrics(): Promise<unknown> };
     mcp: {
