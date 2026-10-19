@@ -38,6 +38,27 @@ const accents: Record<string, string> = {
   yellow: "#d29922", pink: "#db61a2", teal: "#39c5cf", cyan: "#39c5cf", coral: "#f78166", gray: "#8b949e", grey: "#8b949e",
 };
 
+/** GitHub Primer colours per icon, used when no status or project colour applies. */
+const iconColors: Partial<Record<Icon, string>> = {
+  open: "#f0f6fc", home: "#f0f6fc", back: "#c9d1d9", left: "#c9d1d9", right: "#c9d1d9", refresh: "#c9d1d9",
+  folder: "#54aeff", chat: "#3fb950", star: "#e3b341", pin: "#f78166", server: "#79c0ff", grid: "#a5d6ff",
+  mic: "#56d4dd", check: "#3fb950", plus: "#3fb950", error: "#ff7b72", attention: "#ffc569", session: "#a371f7",
+};
+
+/** Copilot style gradients, top left to bottom right. */
+const iconGradients: Partial<Record<Icon, string[]>> = {
+  copilot: ["#c297ff", "#8957e5", "#58a6ff"],
+  sparkle: ["#ffd33d", "#f778ba", "#a371f7"],
+};
+
+function iconFill(icon: Icon): { fill: string; defs: string } {
+  const stops = iconGradients[icon];
+  if (!stops) return { fill: iconColors[icon] ?? "#b392f0", defs: "" };
+  const id = `icon-${icon}`;
+  const stopTags = stops.map((stop, index) => `<stop offset="${index / (stops.length - 1)}" stop-color="${stop}"/>`).join("");
+  return { fill: `url(#${id})`, defs: `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1">${stopTags}</linearGradient></defs>` };
+}
+
 /** Provider logos (see brands.ts). Single-colour marks are drawn in white on the dark tile. */
 function providerBadge(provider: string, tall: boolean): string | undefined {
   if (!Object.hasOwn(brands, provider)) return;
@@ -91,7 +112,8 @@ export function renderTile(tile: Tile, frame = 0, reducedMotion = false): string
   } else {
     const scale = tall ? 2.5 : 2.9;
     const offset = 72 - 12 * scale;
-    center = `<g transform="translate(${offset} ${tall ? 14 : 16}) scale(${scale})" fill="${color}">${tile.icon ? paths[tile.icon] : ""}</g>`;
+    const branded = tile.icon && !tile.activity && !tile.recording && !accent ? iconFill(tile.icon) : { fill: color, defs: "" };
+    center = `${branded.defs}<g transform="translate(${offset} ${tall ? 14 : 16}) scale(${scale})" fill="${branded.fill}">${tile.icon ? paths[tile.icon] : ""}</g>`;
   }
   const badge = tile.activity && tile.activity !== "working"
     ? tile.activity === "attention" ? `<circle cx="122" cy="22" r="14" fill="${color}"/><text x="122" y="31" text-anchor="middle" fill="#0d1117" font-size="24" font-weight="800">?</text>`
