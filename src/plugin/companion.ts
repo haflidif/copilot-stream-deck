@@ -50,6 +50,10 @@ export interface NavFeed { projects: Project[]; sessions: AppSession[] }
 const feedId = (value: unknown): string | undefined =>
   typeof value === "string" && /^[a-zA-Z0-9-]{1,100}$/.test(value) ? value : undefined;
 
+/** The colour the user gave a project in the app. Neutral means none. */
+const accentOf = (row: Record<string, unknown>): { accent?: string } =>
+  typeof row.accentToken === "string" && row.accentToken !== "neutral" && /^[a-z_]{1,20}$/.test(row.accentToken) ? { accent: row.accentToken } : {};
+
 function feedActivity(status: unknown, indicator: unknown): Activity {
   if (indicator === "merge_ready" && (status === "attention" || status === "idle")) return "ready";
   switch (status) {
@@ -73,7 +77,7 @@ export function parseNavFeed(message: unknown): NavFeed | undefined {
     if (!item || typeof item !== "object") continue;
     const row = item as Record<string, unknown>;
     const id = feedId(row.id);
-    if (row.kind === "project" && id) projects.push({ id, name: label(row.label) ?? "Project" });
+    if (row.kind === "project" && id) projects.push({ id, name: label(row.label) ?? "Project", ...accentOf(row) });
   }
   const sessions = new Map<string, AppSession>();
   const pinned = new Set<string>();
@@ -94,7 +98,7 @@ export function parseNavFeed(message: unknown): NavFeed | undefined {
       sessions.set(id, {
         id, name: label(row.label) ?? (chat ? "New chat" : "New session"),
         kind: chat ? "chat" : "session", activity: feedActivity(row.status, row.indicatorKind),
-        ...(projectId && !chat ? { projectId } : {}),
+        ...(projectId && !chat ? { projectId } : {}), ...accentOf(row),
       });
     }
   }

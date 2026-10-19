@@ -12,6 +12,8 @@ export interface Tile {
   selected?: boolean;
   gauge?: number;
   recording?: boolean;
+  /** Project colour token from the app, drawn as a strip on top of the tile. */
+  accent?: string;
   action?: Action;
 }
 type View =
@@ -149,7 +151,7 @@ export class Dashboard {
         this.questionTile({ label: "Live sessions", value: String(data.sessions.filter((row) => row.activity === "working").length) }),
       ];
     } else if (this.view.type === "projects") {
-      items = data.projects.map((project) => viewTile(project.name, "folder", { type: "sessions", projectId: project.id, page: 0 }));
+      items = data.projects.map((project) => ({ ...viewTile(project.name, "folder", { type: "sessions", projectId: project.id, page: 0 }), accent: project.accent }));
     } else if (this.view.type === "sessions") {
       const view = this.view;
       items = data.sessions
@@ -159,6 +161,7 @@ export class Dashboard {
         .map((session) => ({
           ...viewTile(session.name, "session", { type: "session", id: session.id, page: 0 }),
           value: initials(session.name), activity: session.activity,
+          accent: session.accent ?? data.projects.find((project) => project.id === session.projectId)?.accent,
         }));
     } else if (this.view.type === "session") {
       const id = this.sessionViewId(this.view);

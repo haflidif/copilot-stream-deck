@@ -3,6 +3,8 @@ export type Activity = "working" | "attention" | "ready" | "idle" | "error" | "u
 export interface Project {
   id: string;
   name: string;
+  /** Project colour chosen in the Copilot app, such as "blue". */
+  accent?: string;
 }
 
 export interface AppSession {
@@ -13,6 +15,7 @@ export interface AppSession {
   kind: "session" | "chat";
   /** Pinned in the Copilot app sidebar. */
   pinned?: boolean;
+  accent?: string;
 }
 
 export interface Capability {

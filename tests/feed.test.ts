@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseMcpServers, parseNavFeed, withNavFeed } from "../src/plugin/companion.js";
 import { Dashboard } from "../src/plugin/dashboard.js";
+import { renderTile } from "../src/plugin/render.js";
 import { snapshot } from "./fixtures.js";
 
 const message = {
@@ -9,15 +10,16 @@ const message = {
   root: { items: [
     { kind: "pinned", id: "pinned", label: "Pinned" },
     { kind: "chats", id: "chats", label: "Chats" },
-    { kind: "project", id: "p-1", label: "Deck" },
+    { kind: "project", id: "p-1", label: "Deck", accentToken: "blue" },
     { kind: "project", id: "bad id!", label: "Nope" },
+    { kind: "project", id: "p-2", label: "Plain", accentToken: "neutral" },
   ] },
   collections: {
     pinned: { items: [{ kind: "workspace", id: "s-1", label: "Pinned copy", status: "idle" }] },
     chats: { items: [{ kind: "chat", id: "c-1", label: "", status: "running" }] },
     "project:p-1": { items: [
       { kind: "workspace", id: "s-1", label: "Feed work", status: "attention" },
-      { kind: "workspace", id: "s-2", label: "Broken", status: "interrupted" },
+      { kind: "workspace", id: "s-2", label: "Broken", status: "interrupted", accentToken: "green" },
       { kind: "workspace", id: "s-3", label: "Ship it", status: "attention", indicatorKind: "merge_ready" },
       { kind: "workspace", status: "idle" },
     ] },
@@ -26,11 +28,11 @@ const message = {
 
 test("reads projects and sessions from the app sidebar", () => {
   const feed = parseNavFeed(message);
-  assert.deepEqual(feed?.projects, [{ id: "p-1", name: "Deck" }]);
+  assert.deepEqual(feed?.projects, [{ id: "p-1", name: "Deck", accent: "blue" }, { id: "p-2", name: "Plain" }]);
   assert.deepEqual(feed?.sessions, [
     { id: "s-1", name: "Feed work", kind: "session", activity: "attention", projectId: "p-1", pinned: true },
     { id: "c-1", name: "New chat", kind: "chat", activity: "working" },
-    { id: "s-2", name: "Broken", kind: "session", activity: "error", projectId: "p-1" },
+    { id: "s-2", name: "Broken", kind: "session", activity: "error", projectId: "p-1", accent: "green" },
     { id: "s-3", name: "Ship it", kind: "session", activity: "ready", projectId: "p-1" },
   ]);
   assert.equal(parseNavFeed({ type: "voice" }), undefined);
@@ -83,6 +85,19 @@ test("MCP servers come from the app for its active session and toggle only while
   await board.press(0);
   assert.deepEqual(sent, [{ type: "mcp.toggle", serverId: "playwright" }]);
   assert.equal(board.view.type, "mcp");
+});
+
+test("project colours from the app show as a strip on project and session tiles", async () => {
+  const board = new Dashboard(async () => {}, async () => {});
+  board.snapshot = withNavFeed(snapshot(), parseNavFeed(message)!, "s-1");
+  await board.press(1);
+  assert.deepEqual(board.tiles().slice(0, 2).map((tile) => tile.accent), ["blue", undefined]);
+  await board.press(0);
+  assert.deepEqual(board.tiles().slice(0, 3).map((tile) => tile.accent), ["blue", "green", "blue"]);
+  assert.match(renderTile({ label: "Deck", accent: "blue", icon: "folder" }), /<rect width="144" height="12" fill="#58a6ff"[\s\S]*fill="#58a6ff"/);
+  assert.match(renderTile({ label: "Deck", accent: "blue", value: "D", activity: "attention" }), /fill="#ffc569"/);
+  assert.doesNotMatch(renderTile({ label: "Deck", accent: "mystery" }), /height="12"/);
+  assert.doesNotMatch(renderTile({ label: "Deck", accent: "__proto__" }), /height="12"/);
 });
 
 test("the home Pinned tile lists app pins alongside local favorites", async () => {
