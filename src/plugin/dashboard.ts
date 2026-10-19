@@ -20,7 +20,7 @@ type View =
   | { type: "sessions"; page: number; projectId?: string; favorites?: boolean; chats?: boolean; attention?: boolean }
   | { type: "session"; page: number; id: string; follow?: boolean }
   | { type: "mcp"; page: number; sessionId: string }
-  | { type: "confirm"; page: number; command: Command; label: string; sessionId?: string }
+  | { type: "confirm"; page: number; command: Command; label: string; sessionId?: string; request?: CompanionRequest }
   | { type: "question"; page: number };
 type Action =
   | { type: "view"; view: View }
@@ -117,7 +117,9 @@ export class Dashboard {
       items = [{ label: "No bridge", icon: "error", activity: "error" }, unavailable("Open Copilot", "chat")];
     } else if (this.view.type === "home") {
       items = [
-        viewTile("New chat", "plus", { type: "confirm", page: 0, command: { type: "newChat" }, label: "Create chat?" }, !data.capabilities.newChat.available),
+        this.voice
+          ? viewTile("New", "plus", { type: "confirm", page: 0, command: { type: "newChat" }, request: { type: "session.new" }, label: "New" })
+          : viewTile("New chat", "plus", { type: "confirm", page: 0, command: { type: "newChat" }, label: "Create chat?" }, !data.capabilities.newChat.available),
         viewTile("Projects", "folder", { type: "projects", page: 0 }, !data.capabilities.projects.available),
         viewTile("Sessions", "chat", { type: "sessions", page: 0 }, !data.capabilities.sessions.available),
         viewTile("Favorites", "star", { type: "sessions", page: 0, favorites: true }, !data.capabilities.sessions.available),
@@ -187,9 +189,17 @@ export class Dashboard {
         ...(question.custom ? [{ label: "Type answer", icon: "chat" as Icon,
           action: { type: "companion" as const, request: { type: "question.focus_custom" as const, sessionId, questionToken: question.token } } }] : []),
       ];
+    } else if (this.view.type === "confirm" && this.view.request?.type === "session.new") {
+      items = [
+        { label: "In this project", icon: "folder", action: { type: "companion", request: this.view.request } },
+        { label: "New chat", icon: "chat", disabled: !data.capabilities.newChat.available, action: { type: "command", command: { type: "newChat" } } },
+        { label: "Cancel", icon: "back", action: { type: "back" } },
+      ];
     } else if (this.view.type === "confirm") {
       items = [
-        { label: "Confirm", icon: "check", action: { type: "command", command: this.view.command } },
+        { label: "Confirm", icon: "check", action: this.view.request
+          ? { type: "companion", request: this.view.request }
+          : { type: "command", command: this.view.command } },
         { label: "Cancel", icon: "back", action: { type: "back" } },
         { label: this.view.label, icon: this.view.command.type === "setMcp" ? "grid" : "plus" },
       ];
@@ -226,7 +236,7 @@ export class Dashboard {
         this.busy = true;
         try {
           await this.send(action.request);
-          if (this.view.type === "question") this.view = this.history.pop() ?? { type: "home", page: 0 };
+          if (this.view.type === "question" || this.view.type === "confirm") this.view = this.history.pop() ?? { type: "home", page: 0 };
         } finally {
           this.busy = false;
         }

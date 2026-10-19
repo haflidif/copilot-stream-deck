@@ -17,6 +17,8 @@ export interface VoiceState {
 }
 export type CompanionRequest =
   | { type: "voice.toggle" }
+  | { type: "session.open"; sessionId: string }
+  | { type: "session.new" }
   | { type: "question.answer"; sessionId: string; questionToken: string; choiceIndex: number }
   | { type: "question.focus_custom"; sessionId: string; questionToken: string };
 type ActionEndpoint = "voice-actions" | "session-actions" | "mcp-actions";

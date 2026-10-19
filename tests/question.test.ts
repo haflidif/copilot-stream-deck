@@ -83,3 +83,36 @@ test("active session view follows the session open in the app window", () => {
   board.view = { type: "session", id: "attached", page: 0 };
   assert.equal(board.targetSessionId, "attached");
 });
+
+test("new session goes through the companion API after a confirm step", async () => {
+  const sent: unknown[] = [];
+  const commands: unknown[] = [];
+  const board = new Dashboard(async (command) => { commands.push(command); }, async () => {}, async (request) => { sent.push(request); });
+  board.snapshot = snapshot();
+  board.voice = { available: true, recording: false, mode: "toggle", activeSessionId: "attached" };
+  assert.equal(board.tiles()[0]!.label, "New");
+  await board.press(0);
+  assert.equal(board.view.type, "confirm");
+  assert.deepEqual(board.tiles().slice(0, 3).map((tile) => tile.label), ["In this project", "New chat", "Cancel"]);
+  assert.deepEqual(sent, []);
+  await board.press(0);
+  assert.deepEqual(sent, [{ type: "session.new" }]);
+  assert.equal(board.view.type as string, "home");
+  await board.press(0);
+  await board.press(1);
+  assert.deepEqual(commands, [{ type: "newChat" }]);
+  assert.equal(board.view.type as string, "home");
+  board.voice = undefined;
+  await board.press(0);
+  assert.equal(board.view.type as string, "confirm");
+  assert.equal(board.tiles()[0]!.label, "Confirm");
+  assert.deepEqual(commands, [{ type: "newChat" }]);
+});
+
+test("created session id is read from create_session results", async () => {
+  const { createdSessionId } = await import("../src/bridge/provider.js");
+  const id = "12345678-1234-1234-1234-123456789abc";
+  assert.equal(createdSessionId({ resultType: "success", textResultForLlm: `Created chat. session_id: ${id}` }), id);
+  assert.equal(createdSessionId({ resultType: "success", structuredContent: { session_id: id, creator: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" } }), id);
+  assert.equal(createdSessionId("Created chat"), undefined);
+});

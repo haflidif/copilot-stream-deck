@@ -39,3 +39,42 @@ test("selected session routes details and MCP to its bridge without changing the
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test("a reloaded bridge on a new port is found again without a failed refresh", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "copilot-deck-reload-"));
+  const provider = { snapshot: async () => snapshot(), command: async () => {} };
+  let bridge = await startBridge(provider, "same", directory);
+  try {
+    const client = new BridgeClient(directory);
+    await client.snapshot();
+    await bridge.close();
+    bridge = await startBridge(provider, "same", directory);
+    assert.equal((await client.snapshot()).bridgeSessionId, snapshot().bridgeSessionId);
+  } finally {
+    await bridge.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("the active session's bridge wins over a newer warmup bridge", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "copilot-deck-warmup-"));
+  const bridges: Awaited<ReturnType<typeof startBridge>>[] = [];
+  try {
+    for (const id of ["active", "warmup"]) {
+      bridges.push(await startBridge({
+        snapshot: async () => { const data = snapshot(); data.bridgeSessionId = id; return data; },
+        command: async () => {},
+      }, id, directory));
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    }
+    const client = new BridgeClient(directory);
+    assert.equal((await client.snapshot()).bridgeSessionId, "warmup");
+    client.follow("active");
+    assert.equal((await client.snapshot()).bridgeSessionId, "active");
+    client.follow("gone");
+    assert.equal((await client.snapshot()).bridgeSessionId, "warmup");
+  } finally {
+    await Promise.all(bridges.map((bridge) => bridge.close()));
+    await rm(directory, { recursive: true, force: true });
+  }
+});

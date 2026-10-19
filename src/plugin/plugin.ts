@@ -7,7 +7,7 @@ import { CompanionClient } from "./companion.js";
 import { Dashboard } from "./dashboard.js";
 import { readSavedDetails } from "./history.js";
 import { tileDataUrl } from "./render.js";
-import { record } from "../shared/protocol.js";
+import { record, type Command } from "../shared/protocol.js";
 
 type Settings = { favorites?: string[]; reducedMotion?: boolean; bridgeSessionId?: string };
 
@@ -16,6 +16,7 @@ class DashboardAction extends SingletonAction {
   private client = new BridgeClient();
   private companion = new CompanionClient(undefined, () => {
     let retarget = false;
+    this.client.follow(this.companion.state?.activeSessionId);
     for (const board of this.boards.values()) {
       const before = board.targetSessionId;
       board.voice = this.companion.state;
@@ -43,10 +44,52 @@ class DashboardAction extends SingletonAction {
     for (const board of this.boards.values()) board.favorites = new Set(settings.favorites ?? []);
   }
 
+  /** Opens sessions through the app's companion API when it is on, otherwise through the bridge deep link. */
+  private async execute(command: Command, board: Dashboard): Promise<void> {
+    if (command.type === "openSession" && this.companion.state) {
+      try {
+        await this.companion.send({ type: "session.open", sessionId: command.id });
+        return;
+      } catch (error) {
+        streamDeck.logger.warn(`Companion open failed, using deep link: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+    if (command.type === "newChat") {
+      let created: string | undefined;
+      let done = false;
+      if (this.companion.state?.activeSessionId) {
+        try {
+          created = await this.client.command(command, this.companion.state.activeSessionId);
+          done = true;
+        } catch (error) {
+          if (!(error instanceof Error) || !/no longer running/.test(error.message)) throw error;
+        }
+      }
+      if (!done) created = await this.client.command(command);
+      if (created) void this.openCreated(created);
+      return;
+    }
+    await this.client.command(command, command.type === "setMcp" ? board.targetSessionId : undefined);
+  }
+
+  /** Switches the app to a session the deck just created. A new chat can take several seconds before the app can open it. */
+  private async openCreated(id: string): Promise<void> {
+    for (let attempt = 0; attempt < 12; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 400 : 1000));
+      try {
+        if (this.companion.state) { await this.companion.send({ type: "session.open", sessionId: id }); return; }
+        await this.client.command({ type: "openSession", id });
+        return;
+      } catch (error) {
+        if (attempt === 11) streamDeck.logger.warn(`Could not open the new chat: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+  }
+
   private board(deviceId: string): Dashboard {
     let board = this.boards.get(deviceId);
     if (!board) {
-      const created: Dashboard = new Dashboard((command) => this.client.command(command, command.type === "setMcp" ? created.targetSessionId : undefined), async (favorites) => {
+      const created: Dashboard = new Dashboard((command) => this.execute(command, created), async (favorites) => {
         const settings = { ...this.settings, favorites };
         await streamDeck.settings.setGlobalSettings(settings);
         this.applySettings(settings);

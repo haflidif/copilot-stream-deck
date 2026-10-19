@@ -56,6 +56,16 @@ test("status normalization prioritizes attention and never infers completion fro
   assert.equal(sessions[2]?.activity, "unknown");
 });
 
+test("an unnamed new chat gets a fallback name instead of breaking the session list", () => {
+  const sessions = normalizeSessions({ sessions: [
+    { id: "new", name: "" },
+    { id: "work", project_id: "p" },
+    { name: "no id" },
+    { id: "ok", name: "Ok" },
+  ] });
+  assert.deepEqual(sessions.map((s) => `${s.id}:${s.name}`), ["new:New chat", "work:New session", "ok:Ok"]);
+});
+
 test("provider combines app-wide state and attached-session metrics, with one shared refresh", async () => {
   const session = joinedSession();
   let calls = 0;
@@ -140,7 +150,7 @@ test("new-chat command creates an idle standalone local chat without a kickoff o
     await provider.command({ type: "newChat" });
     assert.deepEqual(calls.at(-1), {
       name: "create_session",
-      arguments: { session_kind: "chat", execution_location: "local", coordinate_with_creator: false },
+      arguments: { session_kind: "chat", coordinate_with_creator: false },
     });
   } finally { provider.dispose(); }
 });

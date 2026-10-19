@@ -57,7 +57,7 @@ test("compiled plugin registers, renders 15 keys, navigates, animates and stops 
   const child = spawn(process.execPath, [
     join(plugin, "bin", "plugin.mjs"), "-port", String(address.port),
     "-pluginUUID", "test-plugin", "-registerEvent", "registerPlugin", "-info", JSON.stringify(info),
-  ], { cwd: plugin, env: { ...process.env, LOCALAPPDATA: root }, stdio: ["ignore", "pipe", "pipe"] });
+  ], { cwd: plugin, env: { ...process.env, LOCALAPPDATA: root, USERPROFILE: root, HOME: root }, stdio: ["ignore", "pipe", "pipe"] });
   child.stdout.on("data", (data: Buffer) => { output += data.toString(); });
   child.stderr.on("data", (data: Buffer) => { output += data.toString(); });
   function waitFor(check: () => boolean): Promise<void> {

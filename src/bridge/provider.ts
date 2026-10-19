@@ -4,19 +4,22 @@ import { finite, record, text, type AppSession, type Command, type McpServer, ty
 export function normalizeSessions(value: unknown): AppSession[] {
   const rows = record(value).sessions;
   if (!Array.isArray(rows)) throw new Error("App status response has no sessions array");
-  return rows.map((value) => {
+  // One odd row (a brand new chat has no name yet) must not take the whole list down.
+  return rows.flatMap((value) => {
     const row = record(value);
+    if (typeof row.id !== "string" || !row.id.trim()) return [];
     const activity = row.activity === undefined ? {} : record(row.activity);
-    return {
-      id: text(row.id, "session id"),
-      name: text(row.name, "session name"),
-      projectId: typeof row.project_id === "string" ? row.project_id : undefined,
-      kind: typeof row.project_id === "string" ? "session" : "chat",
-      activity: row.awaiting_user_input || row.awaiting_plan_approval ? "attention"
-        : row.was_interrupted ? "error"
-        : activity.status === "busy" ? "working"
-        : activity.status === "idle" ? "idle" : "unknown",
-    };
+    const inProject = typeof row.project_id === "string";
+    return [{
+      id: row.id,
+      name: typeof row.name === "string" && row.name.trim() ? row.name : inProject ? "New session" : "New chat",
+      projectId: inProject ? row.project_id as string : undefined,
+      kind: inProject ? "session" as const : "chat" as const,
+      activity: row.awaiting_user_input || row.awaiting_plan_approval ? "attention" as const
+        : row.was_interrupted ? "error" as const
+        : activity.status === "busy" ? "working" as const
+        : activity.status === "idle" ? "idle" as const : "unknown" as const,
+    }];
   });
 }
 
@@ -139,7 +142,7 @@ export class AppProvider {
     return snapshot;
   }
 
-  async command(command: Command): Promise<void> {
+  async command(command: Command): Promise<string | undefined> {
     const snapshot = await this.snapshot();
     switch (command.type) {
       case "openSession": {
@@ -152,13 +155,15 @@ export class AppProvider {
         await this.openLink(validateSessionLink(row.app_url, command.id));
         break;
       }
-      case "newChat":
+      case "newChat": {
         if (!snapshot.capabilities.newChat.available) throw new Error("New chat is unavailable");
-        await deadline(this.session.rpc.tools.execute({
+        const result = await deadline(this.session.rpc.tools.execute({
           name: "create_session",
-          arguments: { session_kind: "chat", execution_location: "local", coordinate_with_creator: false },
-        })).then(assertToolSuccess);
-        break;
+          arguments: { session_kind: "chat", coordinate_with_creator: false },
+        }), 45000);
+        assertToolSuccess(result);
+        return createdSessionId(result);
+      }
       case "setMcp":
         if (!snapshot.capabilities.mcp.available || !snapshot.mcp.some((row) => row.name === command.name)) {
           throw new Error("MCP server is no longer available");
@@ -179,4 +184,13 @@ function assertToolSuccess(value: unknown): void {
   }
   const obj = record(value);
   if (obj.resultType !== "success") throw new Error(String(obj.error ?? obj.textResultForLlm ?? "App command failed"));
+}
+
+/** Finds the new session id in a create_session result, preferring an explicit session_id field. */
+export function createdSessionId(value: unknown): string | undefined {
+  const obj = typeof value === "string" ? {} : record(value);
+  const text = typeof value === "string" ? value
+    : [JSON.stringify(obj.structuredContent ?? null), String(obj.textResultForLlm ?? "")].join("\n");
+  const uuid = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
+  return text.match(new RegExp(`session_id\\W{0,4}(${uuid})`))?.[1] ?? text.match(new RegExp(uuid))?.[0];
 }

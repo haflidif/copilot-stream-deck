@@ -7,7 +7,7 @@ import { parseCommand, parseDescriptor, type BridgeDescriptor, type Command, typ
 
 export interface Provider {
   snapshot(): Promise<Snapshot>;
-  command(command: Command): Promise<void>;
+  command(command: Command): Promise<string | undefined | void>;
 }
 
 export async function startBridge(provider: Provider, sessionId: string, directory = bridgeDirectory()) {
@@ -37,8 +37,8 @@ export async function startBridge(provider: Provider, sessionId: string, directo
         commandPending = true;
         try {
           const command = parseCommand(JSON.parse(await body(request)));
-          await provider.command(command);
-          reply(200, { ok: true });
+          const created = await provider.command(command);
+          reply(200, { ok: true, ...(created ? { sessionId: created } : {}) });
         } finally {
           commandPending = false;
         }
