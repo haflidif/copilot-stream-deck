@@ -78,10 +78,27 @@ function providerBadge(provider: string, tall: boolean): string | undefined {
     + `<g transform="translate(${(72 - size / 2 + inset).toFixed(2)} ${(top + inset).toFixed(2)}) scale(${scale.toFixed(4)})" fill="#ffffff" fill-rule="evenodd">${brands[provider]}</g>`;
 }
 
-export function renderTile(tile: Tile, frame = 0, reducedMotion = false): string {
-  if (!tile.label && !tile.icon && !tile.value && !tile.activity) {
-    return '<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144"><rect width="144" height="144" rx="13" fill="#0d1117"/></svg>';
-  }
+/** Empty keys share a slow sparkle wave that drifts diagonally across the deck. */
+function renderEmpty(slot: number | undefined, frame: number, reducedMotion: boolean): string {
+  const base = '<rect width="144" height="144" rx="13" fill="#0d1117"/>';
+  if (slot === undefined) return `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144">${base}</svg>`;
+  const diagonal = (slot % 5) + Math.floor(slot / 5);
+  const wave = reducedMotion ? 0.15 : Math.max(0, Math.sin((frame / ambientFrames) * 2 * Math.PI - diagonal * 0.7));
+  const glow = wave ** 2;
+  const size = 0.55 + glow * 0.35;
+  const sparkle = "M12 2c.4 4.6 2.4 7.6 10 10-7.6 2.4-9.6 5.4-10 10-.4-4.6-2.4-7.6-10-10 7.6-2.4 9.6-5.4 10-10Z";
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
+<defs><radialGradient id="glow"><stop stop-color="#8957e5" stop-opacity="0.55"/><stop offset="1" stop-color="#8957e5" stop-opacity="0"/></radialGradient>
+<linearGradient id="star" x2="1" y2="1"><stop stop-color="#c297ff"/><stop offset="0.5" stop-color="#8957e5"/><stop offset="1" stop-color="#58a6ff"/></linearGradient></defs>
+${base}<circle cx="72" cy="72" r="64" fill="url(#glow)" opacity="${(glow * 0.7).toFixed(2)}"/>
+<g transform="translate(72 72) scale(${(size * 3).toFixed(3)}) translate(-12 -12)" fill="url(#star)" opacity="${(0.1 + glow * 0.75).toFixed(2)}"><path d="${sparkle}"/></g></svg>`;
+}
+
+/** Frames in one ambient loop; the plugin ticks every 125 ms, so this is 6 seconds. */
+export const ambientFrames = 48;
+
+export function renderTile(tile: Tile, frame = 0, reducedMotion = false, slot?: number): string {
+  if (!tile.label && !tile.icon && !tile.value && !tile.activity) return renderEmpty(slot, frame, reducedMotion);
   const accent = tile.accent && Object.hasOwn(accents, tile.accent) ? accents[tile.accent] : undefined;
   const color = tile.activity === "error" || tile.recording ? "#ff747e" : tile.activity === "attention" ? "#ffc569" : tile.activity === "ready" ? "#5be3a5"
     : tile.activity === "working" ? "#b392f0" : accent ?? "#b392f0";
@@ -153,6 +170,6 @@ export function renderTile(tile: Tile, frame = 0, reducedMotion = false): string
 ${center}${badge}${group}${label}</g></svg>`;
 }
 
-export function tileDataUrl(tile: Tile, frame: number, reducedMotion: boolean): string {
-  return `data:image/svg+xml;base64,${Buffer.from(renderTile(tile, frame, reducedMotion)).toString("base64")}`;
+export function tileDataUrl(tile: Tile, frame: number, reducedMotion: boolean, slot?: number): string {
+  return `data:image/svg+xml;base64,${Buffer.from(renderTile(tile, frame, reducedMotion, slot)).toString("base64")}`;
 }

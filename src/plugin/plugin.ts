@@ -6,7 +6,7 @@ import { BridgeClient } from "./client.js";
 import { CompanionClient, withNavFeed } from "./companion.js";
 import { Dashboard } from "./dashboard.js";
 import { readSavedDetails } from "./history.js";
-import { tileDataUrl } from "./render.js";
+import { ambientFrames, tileDataUrl } from "./render.js";
 import { record, type Command, type Snapshot } from "../shared/protocol.js";
 
 type Settings = { favorites?: string[]; reducedMotion?: boolean; bridgeSessionId?: string };
@@ -202,7 +202,7 @@ class DashboardAction extends SingletonAction {
 
   private async tick(): Promise<void> {
     if (Date.now() - this.lastRefresh > 5000 && !this.refreshing) void this.refresh();
-    this.frame = (this.frame + 1) % 12;
+    this.frame = (this.frame + 1) % ambientFrames;
     await this.render();
   }
 
@@ -275,7 +275,7 @@ class DashboardAction extends SingletonAction {
         const pos = key.coordinates;
         const supported = key.device.size.columns === 5 && key.device.size.rows === 3;
         const tile = supported && pos ? tiles.get(key.device.id)?.[pos.row * 5 + pos.column] : undefined;
-        const image = tileDataUrl(tile ?? { label: "Needs 15-key layout", icon: "error", activity: "error" }, this.frame, this.settings.reducedMotion === true);
+        const image = tileDataUrl(tile ?? { label: "Needs 15-key layout", icon: "error", activity: "error" }, this.frame, this.settings.reducedMotion === true, supported && pos ? pos.row * 5 + pos.column : undefined);
         if (this.images.get(key.id) !== image) {
           await key.setImage(image);
           if (this.visible.has(key.id)) this.images.set(key.id, image);

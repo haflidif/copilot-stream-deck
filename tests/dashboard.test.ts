@@ -374,3 +374,10 @@ test("page key uses a capitalised title and hides arrows on single pages", async
   assert.equal(board.tiles()[11]?.disabled, true);
   assert.equal(board.tiles()[14]?.label, "Next");
 });
+
+test("empty keys run a sparkle wave unless motion is reduced", () => {
+  const blank = { label: "" };
+  assert.notEqual(renderTile(blank, 0, false, 3), renderTile(blank, 24, false, 3));
+  assert.equal(renderTile(blank, 0, true, 3), renderTile(blank, 12, true, 3));
+  assert.doesNotMatch(renderTile(blank, 0, false), /star/);
+});
