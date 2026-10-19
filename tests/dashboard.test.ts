@@ -411,3 +411,24 @@ test("Copilot reacts: Psst! opens what needs you, and a nearly full context make
   assert.doesNotMatch(startled, />z<\/text>/);
   assert.match(renderTile({ label: "Working", busy: 1, mood: { sweat: true } }, 0), /#79c0ff/);
 });
+
+test("a finished session gets a short confetti burst, skipped with reduced motion", () => {
+  const { board } = setup();
+  let now = 1000;
+  board.now = () => now;
+  const working = board.snapshot!.sessions.find((row) => row.activity === "working")!;
+  board.tiles();
+  board.snapshot = { ...board.snapshot!, sessions: board.snapshot!.sessions.map((row) => row.id === working.id ? { ...row, activity: "idle" } : row) };
+  assert.equal(board.tiles()[9]!.confetti, 0);
+  now += Dashboard.confettiMs / 2;
+  const home = board.tiles()[9]!;
+  assert.equal(home.confetti, 0.5);
+  assert.match(renderTile(home, 0), /#f2cc60/);
+  assert.doesNotMatch(renderTile(home, 0, true), /#f2cc60/);
+  board.reducedMotion = true;
+  assert.equal(board.tiles()[9]!.confetti, undefined);
+  board.reducedMotion = false;
+  now += Dashboard.confettiMs;
+  assert.equal(board.tiles()[9]!.confetti, undefined);
+  assert.equal(board.tiles()[9]!.flash, true);
+});

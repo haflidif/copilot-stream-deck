@@ -207,12 +207,41 @@ export function renderTile(tile: Tile, frame = 0, reducedMotion = false, slot?: 
       ? `<rect x="3" y="3" width="138" height="138" rx="12" fill="none" stroke="#5be3a5" stroke-width="5" opacity="${reducedMotion ? 1 : [1, 0.85, 0.6, 0.4, 0.6, 0.85][((frame % 6) + 6) % 6]}"/>`
     : tile.recording ? `<rect x="3" y="3" width="138" height="138" rx="12" fill="none" stroke="${color}" stroke-width="4"/>`
       : tile.selected ? `<rect x="2.5" y="2.5" width="139" height="139" rx="12" fill="none" stroke="${color}" stroke-width="3"/>` : "";
+  const confetti = tile.confetti !== undefined && !reducedMotion && !tile.disabled ? renderConfetti(tile.confetti) : "";
   const strip = accent ? `<rect width="144" height="12" fill="${accent}" clip-path="url(#tile)"/>` : "";
   return `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
 <defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#1c2230"/><stop offset="1" stop-color="#0d1117"/></linearGradient><clipPath id="tile"><rect width="144" height="144" rx="13"/></clipPath></defs>
 <rect width="144" height="144" rx="13" fill="url(#bg)"/>${strip}${pulse}
 <g opacity="${disabled}" font-family="Segoe UI, Arial, sans-serif">
-${center}${badge}${group}${label}</g></svg>`;
+${center}${badge}${group}${label}</g>${confetti}</svg>`;
+}
+
+const confettiColors = ["#c297ff", "#58a6ff", "#5be3a5", "#f2cc60", "#ff7b72", "#e6edf3"];
+
+/** Confetti bursts shown one after another over the whole confetti run, each from a slightly different spot. */
+export const confettiBursts = 3;
+const burstOrigins = [[72, 60], [52, 52], [92, 52]] as const;
+
+/** Confetti: a few bursts that pop up, spread out and fall off the key while fading. */
+function renderConfetti(progress: number): string {
+  const whole = Math.min(0.9999, Math.max(0, progress)) * confettiBursts;
+  const round = Math.floor(whole);
+  const t = whole - round;
+  const [ox, oy] = burstOrigins[round % burstOrigins.length]!;
+  const fade = t < 0.7 ? 1 : (1 - t) / 0.3;
+  return Array.from({ length: 18 }, (_, i) => {
+    const angle = (i / 18) * Math.PI * 2 + (i % 3) * 0.4 + round * 0.7;
+    const speed = 50 + (i * 37) % 45;
+    const burst = 1 - (1 - t) ** 3;
+    const x = ox + Math.cos(angle) * speed * burst + Math.sin(t * 9 + i) * 4;
+    const y = oy + Math.sin(angle) * speed * 0.7 * burst - 30 * burst + 110 * t * t;
+    const spin = Math.round((i * 47 + t * 720 * (i % 2 ? 1 : -1)) % 360);
+    const color = confettiColors[(i + round) % confettiColors.length];
+    const piece = i % 3 === 0
+      ? `<circle r="3.5" fill="${color}"/>`
+      : `<rect x="-5" y="-2.5" width="10" height="5" rx="1" fill="${color}"/>`;
+    return `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${spin})" opacity="${fade.toFixed(2)}">${piece}</g>`;
+  }).join("");
 }
 
 export function tileDataUrl(tile: Tile, frame: number, reducedMotion: boolean, slot?: number): string {

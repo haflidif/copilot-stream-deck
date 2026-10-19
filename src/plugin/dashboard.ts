@@ -23,6 +23,8 @@ export interface Tile {
   tone?: Tone;
   /** Just finished working; drawn as a green flashing border. */
   flash?: boolean;
+  /** Progress (0 to 1) of the short confetti burst right after a session finishes. */
+  confetti?: number;
   /** Number of sub-sessions grouped under this tile; drawn as a "+N" badge. */
   children?: number;
   /** A sub-session shown on its parent's page; drawn with a nesting mark. */
@@ -73,6 +75,8 @@ export class Dashboard {
   favorites = new Set<string>();
   /** A finished session flashes until it is opened on the deck, or for at most this long. */
   static readonly finishedMs = 5 * 60_000;
+  /** How long the confetti burst lasts after a session finishes. */
+  static readonly confettiMs = 4200;
   now: () => number = Date.now;
   private lastActivity = new Map<string, string>();
   private finishedAt = new Map<string, number>();
@@ -173,6 +177,14 @@ export class Dashboard {
     return this.finishedAt.has(id);
   }
 
+  /** Confetti progress for a session (or the newest finish when no id is given), while the burst is still running. */
+  private confetti(id?: string): { confetti: number } | Record<string, never> {
+    if (this.reducedMotion) return {};
+    const at = id ? this.finishedAt.get(id) : Math.max(-Infinity, ...this.finishedAt.values());
+    const elapsed = at === undefined ? Infinity : this.now() - at;
+    return elapsed >= 0 && elapsed < Dashboard.confettiMs ? { confetti: elapsed / Dashboard.confettiMs } : {};
+  }
+
   /** Moves the drawn context ring a step toward the real value; a newly opened session fills up from empty. */
   private easeRing(id: string, target: number | undefined): number | undefined {
     if (target === undefined || !Number.isFinite(target)) {
@@ -234,7 +246,7 @@ export class Dashboard {
           activity: data.sessions.some((row) => row.activity === "attention") ? "attention" : undefined,
         },
         this.questionTile(this.finishedAt.size
-          ? { label: "Finished", icon: "check", activity: "ready", flash: true, value: this.finishedAt.size > 1 ? String(this.finishedAt.size) : undefined,
+          ? { label: "Finished", icon: "check", activity: "ready", flash: true, value: this.finishedAt.size > 1 ? String(this.finishedAt.size) : undefined, ...this.confetti(),
             action: { type: "view", view: { type: "sessions", page: 0, finished: true } } }
           : { label: "" }),
       ];
@@ -260,7 +272,7 @@ export class Dashboard {
           ...viewTile(session.name, "session", count
             ? { type: "sessions", parentId: session.id, page: 0 }
             : { type: "session", id: session.id, page: 0 }),
-          value: initials(session.name), activity: session.activity, flash: this.finished(session.id),
+          value: initials(session.name), activity: session.activity, flash: this.finished(session.id), ...this.confetti(session.id),
           accent: session.accent ?? data.projects.find((project) => project.id === session.projectId)?.accent,
           ...(count ? { children: count } : {}),
           ...(view.parentId && session.id !== view.parentId ? { nested: true } : {}),
