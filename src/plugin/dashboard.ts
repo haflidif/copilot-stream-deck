@@ -187,18 +187,18 @@ export class Dashboard {
     } else if (this.view.type === "home") {
       items = [
         this.voice
-          ? viewTile("New", "plus", { type: "confirm", page: 0, command: { type: "newChat" }, request: { type: "session.new" }, label: "New" })
-          : viewTile("New chat", "plus", { type: "confirm", page: 0, command: { type: "newChat" }, label: "Create chat?" }, !data.capabilities.newChat.available),
+          ? viewTile("New", "sparkle", { type: "confirm", page: 0, command: { type: "newChat" }, request: { type: "session.new" }, label: "New" })
+          : viewTile("New chat", "sparkle", { type: "confirm", page: 0, command: { type: "newChat" }, label: "Create chat?" }, !data.capabilities.newChat.available),
         viewTile("Projects", "folder", { type: "projects", page: 0 }, !data.capabilities.projects.available),
-        viewTile("Sessions", "chat", { type: "sessions", page: 0 }, !data.capabilities.sessions.available),
+        viewTile("Sessions", "copilot", { type: "sessions", page: 0 }, !data.capabilities.sessions.available),
         data.capabilities.appPins.available
           ? viewTile("Pinned", "pin", { type: "sessions", page: 0, favorites: true }, !data.capabilities.sessions.available)
           : viewTile("Favorites", "star", { type: "sessions", page: 0, favorites: true }, !data.capabilities.sessions.available),
         this.voice?.activeSessionId && this.voice.mcp
-          ? viewTile("MCP servers", "grid", { type: "mcp", page: 0, sessionId: this.voice.activeSessionId })
-          : viewTile("MCP servers", "grid", { type: "mcp", page: 0, sessionId: data.bridgeSessionId }, !data.capabilities.mcp.available),
+          ? viewTile("MCP servers", "server", { type: "mcp", page: 0, sessionId: this.voice.activeSessionId })
+          : viewTile("MCP servers", "server", { type: "mcp", page: 0, sessionId: data.bridgeSessionId }, !data.capabilities.mcp.available),
         viewTile("Chats", "chat", { type: "sessions", page: 0, chats: true }, !data.capabilities.sessions.available),
-        viewTile(this.voice?.activeSessionId ? "Active session" : "This session", "session", { type: "session", id: data.bridgeSessionId, follow: true, page: 0 }),
+        viewTile(this.voice?.activeSessionId ? "Active session" : "This session", "copilot", { type: "session", id: data.bridgeSessionId, follow: true, page: 0 }),
         this.voiceTile(),
         {
           ...viewTile("Needs you", "attention", this.onlyWaitingIsQuestion(data.sessions)
@@ -260,7 +260,7 @@ export class Dashboard {
         { label: "Context used", value: details?.contextPercent === undefined ? missing : `${details.contextPercent.toFixed(0)}%`, gauge: details?.contextPercent, ring: this.easeRing(id, details?.contextPercent) },
         { label: "Context limit", value: details?.contextLimit === undefined ? missing : formatTokens(details.contextLimit) },
         { label: details?.creditsStatus === "complete" ? "AI credits" : details ? "Credits (partial)" : "AI credits", value: details?.aiCredits === undefined ? missing : details.aiCredits.toFixed(1) },
-        viewTile("MCP servers", "grid", { type: "mcp", page: 0, sessionId: id }, !this.appMcp(id) && (!own || !data.capabilities.mcp.available)),
+        viewTile("MCP servers", "server", { type: "mcp", page: 0, sessionId: id }, !this.appMcp(id) && (!own || !data.capabilities.mcp.available)),
         this.voiceTile(id),
         this.voice?.question && this.voice.activeSessionId === id
           ? this.questionTile({ label: "" })

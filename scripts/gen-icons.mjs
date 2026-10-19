@@ -5,7 +5,7 @@ const octicons = createRequire(import.meta.url)("@primer/octicons");
 const map = {
   plus: "plus", folder: "file-directory", chat: "comment-discussion", star: "star", grid: "plug",
   mic: "unmute", back: "arrow-left", home: "home", left: "chevron-left", right: "chevron-right",
-  refresh: "sync", open: "link-external", check: "check", error: "alert", session: "pulse", attention: "bell",
+  refresh: "sync", open: "mark-github", check: "check", pin: "pin", error: "alert", session: "pulse", attention: "bell", copilot: "copilot", sparkle: "sparkle-fill", server: "server",
 };
 const entries = Object.entries(map).map(([key, name]) => {
   const icon = octicons[name];

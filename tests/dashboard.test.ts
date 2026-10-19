@@ -312,7 +312,7 @@ test("attention tiles pulse unless motion is reduced", () => {
 test("every icon renders as valid single-path SVG data", () => {
   for (const icon of Object.keys(icons) as (keyof typeof icons)[]) {
     const svg = renderTile({ label: "x", icon });
-    assert.match(svg, /<path d="M[^"<>]+"\/>/, icon);
+    assert.match(svg, /<path d="[Mm][^"<>]+"\/>/, icon);
     assert.doesNotMatch(svg, /d="<|<\/path>/, icon);
   }
 });
