@@ -3,6 +3,7 @@ import type { AppMcp, CompanionRequest, VoiceState } from "./companion.js";
 import { icons } from "./icons.js";
 
 export type Icon = keyof typeof icons;
+export type Tone = "copilot" | "blue" | "gold" | "green" | "muted";
 export interface Tile {
   label: string;
   icon?: Icon;
@@ -18,6 +19,8 @@ export interface Tile {
   recording?: boolean;
   /** Project colour token from the app, drawn as a strip on top of the tile. */
   accent?: string;
+  /** Colour for the value text when no status colour applies. */
+  tone?: Tone;
   /** Just finished working; drawn as a green flashing border. */
   flash?: boolean;
   /** Number of sub-sessions grouped under this tile; drawn as a "+N" badge. */
@@ -204,7 +207,7 @@ export class Dashboard {
           ...viewTile("Needs you", "attention", this.onlyWaitingIsQuestion(data.sessions)
             ? { type: "question", page: 0 }
             : { type: "sessions", page: 0, attention: true }, !data.capabilities.sessions.available),
-          value: String(data.sessions.filter((row) => row.activity === "attention").length),
+          value: String(data.sessions.filter((row) => row.activity === "attention").length), tone: "muted",
           activity: data.sessions.some((row) => row.activity === "attention") ? "attention" : undefined,
         },
         this.questionTile(this.finishedAt.size
@@ -255,11 +258,11 @@ export class Dashboard {
       items = [
         { label: requested ? "Open requested" : "Open in app", icon: "open", disabled: requested || !data.capabilities.openSession.available || !session, action: { type: "command", command: { type: "openSession", id } } },
         { label: this.favorites.has(id) ? "Unfavorite" : "Favorite", icon: "star", selected: this.favorites.has(id), action: { type: "favorite", id } },
-        { ...modelTile(details?.model), value: details?.model ?? missing },
-        { label: "Reasoning", value: details ? details.reasoning ?? "Default" : missing, disabled: !details },
+        { ...modelTile(details?.model), value: details?.model ?? missing, ...(details?.model ? {} : { tone: "muted" as Tone }) },
+        { label: "Reasoning", value: details ? details.reasoning ?? "Default" : missing, tone: details ? "copilot" : "muted", disabled: !details },
         { label: "Context used", value: details?.contextPercent === undefined ? missing : `${details.contextPercent.toFixed(0)}%`, gauge: details?.contextPercent, ring: this.easeRing(id, details?.contextPercent) },
-        { label: "Context limit", value: details?.contextLimit === undefined ? missing : formatTokens(details.contextLimit) },
-        { label: details?.creditsStatus === "complete" ? "AI credits" : details ? "Credits (partial)" : "AI credits", value: details?.aiCredits === undefined ? missing : details.aiCredits.toFixed(1) },
+        { label: "Context limit", value: details?.contextLimit === undefined ? missing : formatTokens(details.contextLimit), tone: details?.contextLimit === undefined ? "muted" : "blue" },
+        { label: details?.creditsStatus === "complete" ? "AI credits" : details ? "Credits (partial)" : "AI credits", value: details?.aiCredits === undefined ? missing : details.aiCredits.toFixed(1), tone: details?.aiCredits === undefined ? "muted" : "gold" },
         viewTile("MCP servers", "server", { type: "mcp", page: 0, sessionId: id }, !this.appMcp(id) && (!own || !data.capabilities.mcp.available)),
         this.voiceTile(id),
         this.voice?.question && this.voice.activeSessionId === id
@@ -273,7 +276,7 @@ export class Dashboard {
       const app = this.appMcp(sessionId);
       items = app ? app.map((server): Tile => ({
         label: server.name, icon: "grid",
-        value: server.enabled ? "ON" : "OFF",
+        value: server.enabled ? "ON" : "OFF", tone: server.enabled ? "green" : "muted",
         selected: server.enabled,
         disabled: !server.toggleable,
         action: { type: "view", view: { type: "confirm", page: 0,
@@ -282,7 +285,7 @@ export class Dashboard {
           label: `${server.enabled ? "Disable" : "Enable"} ${server.name}?` } },
       })) : data.bridgeSessionId !== sessionId ? [] : data.mcp.map((server) => ({
         label: server.name, icon: "grid",
-        value: server.enabled ? "ON" : "OFF",
+        value: server.enabled ? "ON" : "OFF", tone: server.enabled ? "green" : "muted",
         selected: server.enabled,
         activity: server.status === "failed" ? "error" : undefined,
         action: { type: "view", view: { type: "confirm", page: 0,

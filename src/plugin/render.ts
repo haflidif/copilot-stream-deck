@@ -1,4 +1,4 @@
-import type { Tile, Icon } from "./dashboard.js";
+import type { Tile, Icon, Tone } from "./dashboard.js";
 import { icons } from "./icons.js";
 import { brands } from "./brands.js";
 
@@ -51,12 +51,20 @@ const iconGradients: Partial<Record<Icon, string[]>> = {
   sparkle: ["#ffd33d", "#f778ba", "#a371f7"],
 };
 
-function iconFill(icon: Icon): { fill: string; defs: string } {
-  const stops = iconGradients[icon];
-  if (!stops) return { fill: iconColors[icon] ?? "#b392f0", defs: "" };
-  const id = `icon-${icon}`;
+function gradient(id: string, stops: string[]): { fill: string; defs: string } {
   const stopTags = stops.map((stop, index) => `<stop offset="${index / (stops.length - 1)}" stop-color="${stop}"/>`).join("");
   return { fill: `url(#${id})`, defs: `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1">${stopTags}</linearGradient></defs>` };
+}
+
+function iconFill(icon: Icon): { fill: string; defs: string } {
+  const stops = iconGradients[icon];
+  return stops ? gradient(`icon-${icon}`, stops) : { fill: iconColors[icon] ?? "#b392f0", defs: "" };
+}
+
+const tones: Record<Exclude<Tone, "copilot">, string> = { blue: "#79c0ff", gold: "#e3b341", green: "#3fb950", muted: "#8b949e" };
+
+function toneFill(tone: Tone): { fill: string; defs: string } {
+  return tone === "copilot" ? gradient("value-copilot", iconGradients.copilot!) : { fill: tones[tone], defs: "" };
 }
 
 /** Provider logos (see brands.ts). Single-colour marks are drawn in white on the dark tile. */
@@ -108,7 +116,8 @@ export function renderTile(tile: Tile, frame = 0, reducedMotion = false): string
     const length = [...value].length;
     const lines = length > 10 ? labelLines(value, 12) : [value];
     const size = lines.length > 1 ? 22 : length <= 4 ? 46 : length <= 7 ? 34 : 26;
-    center = lines.map((line, index) => `<text x="72" y="${lines.length > 1 ? 44 + index * 26 : (tall ? 56 : 62) + size * 0.1}" text-anchor="middle" fill="${color}" font-size="${size}" font-weight="700">${escapeXml(line)}</text>`).join("");
+    const toned = tile.tone && !tile.activity && !tile.recording && !accent ? toneFill(tile.tone) : { fill: color, defs: "" };
+    center = toned.defs + lines.map((line, index) => `<text x="72" y="${lines.length > 1 ? 44 + index * 26 : (tall ? 56 : 62) + size * 0.1}" text-anchor="middle" fill="${toned.fill}" font-size="${size}" font-weight="700">${escapeXml(line)}</text>`).join("");
   } else {
     const scale = tall ? 2.5 : 2.9;
     const offset = 72 - 12 * scale;
