@@ -17,7 +17,8 @@ function setup() {
 test("home has 15 tiles and never advertises unverified voice or pins", () => {
   const { board } = setup();
   assert.equal(board.tiles().length, 15);
-  assert.equal(board.tiles()[7]?.disabled, true);
+  assert.equal(board.tiles()[7]?.label, "Working");
+  assert.equal(board.tiles()[7]?.busy, 1);
   assert.equal(board.tiles()[8]?.label, "Needs you");
 });
 
@@ -296,7 +297,7 @@ test("a session that stops working flashes for a moment, but not on first load",
   board.now = () => now;
   const working = board.snapshot!.sessions.find((row) => row.activity === "working")!;
   assert.ok(working);
-  assert.equal(board.tiles()[9]!.label, "Live sessions");
+  assert.equal(board.tiles()[9]!.label, "");
   board.snapshot = { ...board.snapshot!, sessions: board.snapshot!.sessions.map((row) => row.id === working.id ? { ...row, activity: "idle" } : row) };
   const home = board.tiles()[9]!;
   assert.equal(home.label, "Finished");
@@ -319,13 +320,13 @@ test("opening a finished session on the deck clears its flash", async () => {
   await board.press(10);
   await board.press(10);
   assert.equal(board.view.type, "home");
-  assert.equal(board.tiles()[9]!.label, "Live sessions");
+  assert.equal(board.tiles()[9]!.label, "");
 });
 
-test("Live sessions opens the sessions that are working", async () => {
+test("Working opens the sessions that are working", async () => {
   const { board } = setup();
   const working = board.snapshot!.sessions.filter((row) => row.activity === "working");
-  await board.press(9);
+  await board.press(7);
   assert.deepEqual(board.tiles().filter((row) => row.action?.type === "view").map((row) => row.label), working.map((row) => row.name));
 });
 
@@ -380,4 +381,15 @@ test("empty keys run a sparkle wave unless motion is reduced", () => {
   assert.notEqual(renderTile(blank, 0, false, 3), renderTile(blank, 24, false, 3));
   assert.equal(renderTile(blank, 0, true, 3), renderTile(blank, 12, true, 3));
   assert.doesNotMatch(renderTile(blank, 0, false), /star/);
+});
+
+test("Working key animates Copilot for busy sessions and stays still with reduced motion", () => {
+  const tile = { label: "Working", busy: 2 };
+  assert.notEqual(renderTile(tile, 0), renderTile(tile, 5));
+  assert.equal(renderTile(tile, 0, true), renderTile(tile, 5, true));
+  assert.match(renderTile(tile, 0), />2<\/text>/);
+  assert.match(renderTile({ label: "Sleeping", busy: 0 }, 0), />z<\/text>/);
+  const { board } = setup();
+  board.snapshot = { ...board.snapshot!, sessions: board.snapshot!.sessions.map((row) => ({ ...row, activity: "idle" as const })) };
+  assert.equal(board.tiles()[7]?.label, "Sleeping");
 });

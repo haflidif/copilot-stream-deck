@@ -109,7 +109,33 @@ export function renderTile(tile: Tile, frame = 0, reducedMotion = false, slot?: 
   // Two-line labels push the label up, so the art above them shrinks a little.
   const tall = fitted.lines.length > 1;
   let center: string;
-  if (tile.activity === "working" && !reducedMotion) {
+  if (tile.busy !== undefined && !tile.disabled) {
+    const busy = Math.max(0, tile.busy);
+    const scale = tall ? 2.5 : 2.9;
+    const left = 72 - 12 * scale;
+    const top = tall ? 14 : 16;
+    const fill = gradient("busy", iconGradients.copilot!);
+    const step = reducedMotion ? 0 : ((frame % ambientFrames) + ambientFrames) % ambientFrames;
+    const [head, eyes] = icons.copilot;
+    let face: string;
+    let extra = "";
+    if (busy) {
+      const bob = Math.sin((step / 12) * 2 * Math.PI) * 0.6;
+      const look = [0, -1.1, -1.1, 0, 1.1, 1.1, 0, 0][Math.floor(step / 6)]!;
+      const blink = step === 22 || step === 23 || step === 46 ? 0.15 : 1;
+      face = `<g transform="translate(0 ${bob.toFixed(2)})"><path d="${head}"/>`
+        + `<g transform="translate(${look} 16.25) scale(1 ${blink}) translate(0 -16.25)"><path d="${eyes}"/></g></g>`;
+      const count = busy > 9 ? "9+" : String(busy);
+      extra = `<circle cx="122" cy="22" r="15" fill="#e6edf3"/><text x="122" y="30" text-anchor="middle" fill="#0d1117" font-size="20" font-weight="800">${count}</text>`;
+    } else {
+      face = `<path d="${head}"/><path d="M8.6 16.6h1.8m3.2 0h1.8" stroke="#c297ff" stroke-width="1.2" stroke-linecap="round" fill="none"/>`;
+      extra = [0, 1, 2].map((i) => {
+        const rise = (((step / ambientFrames) + i / 3) % 1);
+        return `<text x="${(104 + rise * 16).toFixed(1)}" y="${(44 - rise * 30).toFixed(1)}" fill="#c297ff" font-size="${(12 + rise * 10).toFixed(1)}" font-weight="800" opacity="${(rise < 0.15 ? rise / 0.15 : 1 - rise).toFixed(2)}">z</text>`;
+      }).join("");
+    }
+    center = `${fill.defs}<g transform="translate(${left} ${top}) scale(${scale})" fill="${fill.fill}" opacity="${busy ? 1 : 0.55}">${face}</g>${extra}`;
+  } else if (tile.activity === "working" && !reducedMotion) {
     const step = ((frame % 12) + 12) % 12;
     const count = [1, 2, 3, 4, 5, 6, 6, 5, 4, 3, 2, 1][step]!;
     center = Array.from({ length: 6 }, (_, i) => {

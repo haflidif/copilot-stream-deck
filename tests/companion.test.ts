@@ -58,17 +58,19 @@ test("active session details are parsed from the app feed", () => {
   assert.match(board.detailsMessage ?? "", /Live values from the Copilot app/);
 });
 
-test("voice tile follows companion state and the app's active session", () => {
+test("voice tile lives on the session view and follows the app's active session", () => {
   const board = new Dashboard(async () => {}, async () => {});
   board.snapshot = snapshot();
-  assert.equal(board.tiles()[7]!.label, "Voice: turn on");
-  assert.equal(board.isVoice(7), false);
+  assert.equal(board.tiles().some((row) => row.icon === "mic"), false);
+  board.view = { type: "session", id: "attached", page: 0 };
+  assert.equal(board.tiles()[8]!.label, "Voice: turn on");
+  assert.equal(board.isVoice(8), false);
   board.voice = { available: true, recording: false, mode: "push_to_talk", activeSessionId: "attached" };
-  assert.equal(board.tiles()[7]!.label, "Hold to talk");
-  assert.equal(board.isVoice(7), true);
+  assert.equal(board.tiles()[8]!.label, "Hold to talk");
+  assert.equal(board.isVoice(8), true);
   board.voice = { ...board.voice, recording: true };
-  assert.equal(board.tiles()[7]!.recording, true);
-  assert.match(renderTile(board.tiles()[7]!, 3), /stroke="#ff747e" stroke-width="4"/);
+  assert.equal(board.tiles()[8]!.recording, true);
+  assert.match(renderTile(board.tiles()[8]!, 3), /stroke="#ff747e" stroke-width="4"/);
   board.view = { type: "session", id: "other", page: 0 };
   assert.equal(board.tiles()[8]!.label, "Open to talk");
   assert.equal(board.isVoice(8), false);

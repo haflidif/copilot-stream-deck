@@ -27,6 +27,8 @@ export interface Tile {
   children?: number;
   /** A sub-session shown on its parent's page; drawn with a nesting mark. */
   nested?: boolean;
+  /** Busy session count; draws an animated Copilot that dozes off when nothing is running. */
+  busy?: number;
   action?: Action;
 }
 type View =
@@ -209,7 +211,10 @@ export class Dashboard {
           : viewTile("MCP servers", "server", { type: "mcp", page: 0, sessionId: data.bridgeSessionId }, !data.capabilities.mcp.available),
         viewTile("Chats", "chat", { type: "sessions", page: 0, chats: true }, !data.capabilities.sessions.available),
         viewTile(this.voice?.activeSessionId ? "Active session" : "This session", "copilot", { type: "session", id: data.bridgeSessionId, follow: true, page: 0 }),
-        this.voiceTile(),
+        (() => {
+          const busy = data.sessions.filter((row) => row.activity === "working").length;
+          return { ...viewTile(busy ? "Working" : "Sleeping", "session", { type: "sessions", page: 0, working: true }, !data.capabilities.sessions.available), busy };
+        })(),
         {
           ...viewTile("Needs you", "attention", this.onlyWaitingIsQuestion(data.sessions)
             ? { type: "question", page: 0 }
@@ -220,10 +225,7 @@ export class Dashboard {
         this.questionTile(this.finishedAt.size
           ? { label: "Finished", icon: "check", activity: "ready", flash: true, value: this.finishedAt.size > 1 ? String(this.finishedAt.size) : undefined,
             action: { type: "view", view: { type: "sessions", page: 0, finished: true } } }
-          : {
-            ...viewTile("Live sessions", "session", { type: "sessions", page: 0, working: true }, !data.capabilities.sessions.available),
-            value: String(data.sessions.filter((row) => row.activity === "working").length),
-          }),
+          : { label: "" }),
       ];
     } else if (this.view.type === "projects") {
       items = data.projects.map((project) => ({ ...viewTile(project.name, "folder", { type: "sessions", projectId: project.id, page: 0 }), accent: project.accent }));

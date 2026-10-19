@@ -25,7 +25,7 @@ test("question view answers through the companion API", async () => {
   const sent: unknown[] = [];
   const board = new Dashboard(async () => {}, async () => {}, async (request) => { sent.push(request); });
   board.snapshot = snapshot();
-  assert.equal(board.tiles()[9]!.label, "Live sessions");
+  assert.equal(board.tiles()[9]!.label, "");
   board.voice = { available: true, recording: false, mode: "toggle", activeSessionId: "attached",
     question: { token: "q", choices: ["Blue", "Red"], custom: true } };
   assert.equal(board.tiles()[9]!.label, "Answer question");
