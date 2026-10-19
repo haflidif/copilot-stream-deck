@@ -98,7 +98,7 @@ test("compiled plugin registers, renders 15 keys, navigates, animates and stops 
     await waitFor(() => images("key-0").some((svg) => svg.includes("Working session")));
     await waitFor(() => new Set(images("key-0").filter((svg) => svg.includes("Working session"))).size >= 2);
     send("keyDown", 0);
-    await waitFor(() => images("key-2").some((svg) => svg.includes("auto")));
+    await waitFor(() => images("key-2").some((svg) => svg.includes(">Auto<")));
     send("keyDown", 0);
     await waitFor(() => commands.length === 1);
     assert.deepEqual(commands, [{ type: "openSession", id: "attached" }]);
@@ -118,7 +118,7 @@ test("compiled plugin registers, renders 15 keys, navigates, animates and stops 
     otherHold = undefined;
     await waitFor(() => images("key-9").at(-1)?.includes(">Working<") === true);
     assert.ok(Date.now() - releasedAt < 3000, "latest selection must refresh without waiting for the five-second poll");
-    assert.match(images("key-2").at(-1)!, /auto/);
+    assert.match(images("key-2").at(-1)!, />Auto</);
     send("keyDown", 10);
     await waitFor(() => images("key-0").at(-1)?.includes("Working session") === true);
     send("keyDown", 1);

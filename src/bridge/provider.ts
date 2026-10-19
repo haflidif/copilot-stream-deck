@@ -23,6 +23,27 @@ export function normalizeSessions(value: unknown): AppSession[] {
   });
 }
 
+/** Child sessions from the app catalog, keyed by id, with the session that created them. */
+export function nestedSessions(catalog: unknown): Map<string, AppSession & { parentId: string }> {
+  if (!Array.isArray(catalog)) throw new Error("App session catalog is not an array");
+  const rows = catalog.flatMap((value) => value && typeof value === "object" && !Array.isArray(value) ? [value as Record<string, unknown>] : []);
+  const ids = new Set(rows.map((row) => row.id));
+  const children = new Map<string, AppSession & { parentId: string }>();
+  for (const row of rows) {
+    const parent = typeof row.coordinating_creator_session_id === "string" ? row.coordinating_creator_session_id
+      : typeof row.creator_session_id === "string" ? row.creator_session_id : undefined;
+    if (typeof row.id !== "string" || !parent || parent === row.id || !ids.has(parent)) continue;
+    const inProject = typeof row.project_id === "string";
+    children.set(row.id, {
+      id: row.id, parentId: parent, activity: "unknown",
+      name: typeof row.name === "string" && row.name.trim() ? row.name : inProject ? "New session" : "New chat",
+      kind: row.type === "chat" || !inProject ? "chat" : "session",
+      ...(inProject ? { projectId: row.project_id as string } : {}),
+    });
+  }
+  return children;
+}
+
 export function normalizeProjects(value: unknown): Project[] {
   if (!Array.isArray(value)) throw new Error("App projects response is not an array");
   return value.map((value) => {
@@ -36,6 +57,7 @@ export class AppProvider {
   private pending?: Promise<Snapshot>;
   private names = new Set<string>();
   private projects?: { time: number; value: Project[] };
+  private nested?: { time: number; value: Map<string, AppSession & { parentId: string }> };
   private unsubscribe: () => void;
 
   constructor(private session: JoinedSession, private openLink = openSessionLink) {
@@ -102,7 +124,25 @@ export class AppProvider {
         }
         snapshot.projects = this.projects.value;
       }),
-      attempt("sessions", async () => { snapshot.sessions = normalizeSessions(await this.appTool("get_sessions_status")); }),
+      attempt("sessions", async () => {
+        const sessions = normalizeSessions(await this.appTool("get_sessions_status"));
+        // Nesting rarely changes, so the catalog is read at most once a minute and a failure keeps the flat list.
+        if (this.names.has("list_sessions_and_chats") && (!this.nested || Date.now() - this.nested.time > 60000)) {
+          try {
+            this.nested = { value: nestedSessions(await this.appTool("list_sessions_and_chats")), time: Date.now() };
+          } catch (error) {
+            snapshot.errors.push(`nesting: ${error instanceof Error ? error.message : String(error)}`);
+          }
+        }
+        const nested = this.nested?.value ?? new Map();
+        for (const row of sessions) {
+          const parentId = nested.get(row.id)?.parentId;
+          if (parentId) row.parentId = parentId;
+        }
+        const known = new Set(sessions.map((row) => row.id));
+        for (const child of nested.values()) if (!known.has(child.id)) sessions.push({ ...child });
+        snapshot.sessions = sessions;
+      }),
       attempt("details", async () => {
         const [model, usage, metadata, context] = await Promise.all([
           deadline(this.session.rpc.model.getCurrent()).then(record),
@@ -162,6 +202,7 @@ export class AppProvider {
           arguments: { session_kind: "chat", coordinate_with_creator: false },
         }), 45000);
         assertToolSuccess(result);
+        this.nested = undefined;
         return createdSessionId(result);
       }
       case "setMcp":

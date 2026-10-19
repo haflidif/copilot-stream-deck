@@ -267,7 +267,10 @@ class DashboardAction extends SingletonAction {
     if (this.rendering) return;
     this.rendering = true;
     try {
-      const tiles = new Map([...this.boards].map(([id, board]) => [id, board.tiles()]));
+      const tiles = new Map([...this.boards].map(([id, board]) => {
+        board.reducedMotion = this.settings.reducedMotion === true;
+        return [id, board.tiles()];
+      }));
       await Promise.all([...this.visible.values()].map(async (key) => {
         const pos = key.coordinates;
         const supported = key.device.size.columns === 5 && key.device.size.rows === 3;

@@ -45,6 +45,28 @@ test("question view answers through the companion API", async () => {
   assert.equal(board.tiles()[0]!.label, "No question waiting");
 });
 
+test("Needs you leads to the question: straight from home, or by opening the session first", async () => {
+  const commands: unknown[] = [];
+  const board = new Dashboard(async (command) => { commands.push(command); }, async () => {}, async () => {});
+  board.snapshot = snapshot();
+  board.view = { type: "session", id: "other", page: 0 };
+  assert.equal(board.tiles()[9]!.label, "Needs you");
+  await board.press(9);
+  assert.deepEqual(commands, [{ type: "openSession", id: "other" }]);
+  board.voice = { available: true, recording: false, mode: "toggle", activeSessionId: "other",
+    question: { token: "q", choices: ["Yes", "No"], custom: false } };
+  assert.equal(board.tiles()[9]!.label, "Answer question");
+  await board.press(9);
+  assert.equal(board.view.type, "question");
+  board.view = { type: "home", page: 0 };
+  await board.press(8);
+  assert.equal(board.view.type, "question");
+  board.view = { type: "home", page: 0 };
+  board.voice = { ...board.voice, activeSessionId: "attached" };
+  await board.press(8);
+  assert.equal(board.view.type, "sessions");
+});
+
 test("companion client sends session actions and rejects non-executed acks", async () => {
   const dir = await mkdtemp(join(tmpdir(), "companion-actions-"));
   const server = new WebSocketServer({ host: "127.0.0.1", port: 0, path: "/v1/logitech/session-actions" });

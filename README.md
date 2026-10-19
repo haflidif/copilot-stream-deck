@@ -8,14 +8,15 @@ This is a working starter, not feature parity with Logitech's Copilot integratio
 
 - A position-aware 5-by-3 dashboard with project and session browsing, paging, Back and Home.
 - Animated blue-dot session tiles, readable labels, attention/error indicators and reduced motion.
-- Sessions waiting for you get a pulsing amber border, and a **Needs you** home tile counts them and opens the list.
+- Sessions waiting for you get a pulsing amber border, and a **Needs you** home tile counts them and opens the list. If the only waiting session is open in the app with a question, it goes straight to the answers. In a session's view, the **Needs you** tile opens that session in the app, and then turns into **Answer question**.
 - When a session finishes working, its tile flashes green and a **Finished** home tile takes you to it. The flash stays until you open the session on the deck, or for 5 minutes.
 - **Live sessions** counts the sessions that are working and lists them when pressed.
-- Context use is shown as a ring that turns amber from 60% and red from 85%.
+- Sub-sessions (sessions another session created) are grouped under their parent. The parent key shows a "+N" pill, and pressing it lists the parent followed by its sub-sessions. The app sidebar feed has no sub-sessions, so they come from the bridge: a bridge must be running, the list is read about once a minute, and their status can lag by about five seconds. Needs you, Finished and Live sessions still list them directly.
+- Context use is shown as a ring that turns amber from 60% and red from 85%. It fills up from empty when you open a session and glides to new values as the context grows. With reduced motion it shows the value straight away.
 - App-wide project and session status, refreshed approximately every five seconds while keys are visible.
 - Opening existing sessions in the app.
 - A confirmed action to create an idle standalone local chat, without starting an agent or creating a code checkout.
-- Model, reasoning, context usage, context limit and AI credits for the session running the bridge.
+- Model, reasoning, context usage, context limit and AI credits for the session running the bridge. The Model key shows the provider logo and a short name, for example "GPT-6 Astra" or "Auto: Opus 5.5".
 - Confirmed MCP enable/disable controls. For the session active in the app they use the app's own MCP list and toggle, with no bridge needed. Servers the app locks (for example by policy) are shown but cannot be changed.
 - Local favorites, stored in Stream Deck plugin settings, shown together with the sessions pinned in the app.
 - An authenticated loopback bridge, with no GitHub credentials entered into Stream Deck.
@@ -96,4 +97,6 @@ This project is not an official GitHub or Elgato product. The six-dot graphics a
 
 ## Icons
 
-Tile icons come from [GitHub Primer Octicons](https://github.com/primer/octicons) (MIT License, Copyright GitHub Inc.). `npm run icons` regenerates `src/plugin/icons.ts` with only the icons the deck uses. The GitHub and Copilot logos are trademarks and are not used.
+Tile icons come from [GitHub Primer Octicons](https://github.com/primer/octicons) (MIT License, Copyright GitHub Inc.). `npm run icons` regenerates `src/plugin/icons.ts` with only the icons the deck uses.
+
+The Model key shows the provider's logo (Anthropic Claude, OpenAI, Google Gemini, xAI Grok, Microsoft, and the GitHub Copilot mark for Auto) above a short model name. The logos come from [LobeHub Icons](https://github.com/lobehub/lobe-icons) (MIT License) and are kept in `src/plugin/brands.ts`. They are trademarks of their owners and are only used to show where a model comes from. This project is not affiliated with or endorsed by any of them. See [NOTICE.md](NOTICE.md).

@@ -109,3 +109,26 @@ test("the home Pinned tile lists app pins alongside local favorites", async () =
   assert.deepEqual(board.tiles().slice(0, 2).map((tile) => tile.label), ["Feed work", "New chat"]);
   assert.notEqual(board.tiles()[2]?.label, "Broken");
 });
+
+test("sub-sessions from the bridge are grouped under their parent", async () => {
+  const base = snapshot();
+  base.sessions.push({ id: "sub", name: "Sub task", projectId: "p-1", kind: "session", activity: "attention", parentId: "s-1" });
+  const merged = withNavFeed(base, parseNavFeed(message)!, "s-1");
+  assert.equal(merged.sessions.find((row) => row.id === "sub")?.parentId, "s-1");
+  const board = new Dashboard(async () => {}, async () => {});
+  board.snapshot = merged;
+  await board.press(1);
+  await board.press(0);
+  const listed = board.tiles().slice(0, 4);
+  assert.deepEqual(listed.map((tile) => [tile.label, tile.children]), [["Feed work", 1], ["Broken", undefined], ["Ship it", undefined], ["", undefined]]);
+  await board.press(0);
+  assert.equal(board.view.type, "sessions");
+  assert.deepEqual(board.tiles().slice(0, 2).map((tile) => [tile.label, tile.nested]), [["Feed work", undefined], ["Sub task", true]]);
+  await board.press(1);
+  assert.deepEqual(board.view, { type: "session", id: "sub", page: 0 });
+  assert.match(renderTile({ label: "Feed work", value: "FW", children: 1 }), />\+1</);
+
+  board.view = { type: "home", page: 0 };
+  await board.press(8);
+  assert.ok(board.tiles().some((tile) => tile.label === "Sub task"));
+});

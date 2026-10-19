@@ -16,6 +16,8 @@ export interface AppSession {
   /** Pinned in the Copilot app sidebar. */
   pinned?: boolean;
   accent?: string;
+  /** Session that created this one; the app nests it under that session in the sidebar. */
+  parentId?: string;
 }
 
 export interface Capability {
@@ -138,6 +140,7 @@ export function parseSnapshot(value: unknown): Snapshot {
       return {
         id: text(row.id, "session id"), name: text(row.name, "session name"), kind: row.kind, activity: row.activity,
         projectId: typeof row.projectId === "string" ? row.projectId : undefined,
+        ...(typeof row.parentId === "string" && row.parentId ? { parentId: row.parentId } : {}),
       };
     }),
     mcp: obj.mcp.map((value) => {

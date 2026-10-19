@@ -11,17 +11,25 @@ export interface Tile {
   disabled?: boolean;
   selected?: boolean;
   gauge?: number;
+  /** Ring fill to draw this frame while it animates toward `gauge`. */
+  ring?: number;
+  /** Model provider; draws a badge in place of the value text. */
+  provider?: Provider;
   recording?: boolean;
   /** Project colour token from the app, drawn as a strip on top of the tile. */
   accent?: string;
   /** Just finished working; drawn as a green flashing border. */
   flash?: boolean;
+  /** Number of sub-sessions grouped under this tile; drawn as a "+N" badge. */
+  children?: number;
+  /** A sub-session shown on its parent's page; drawn with a nesting mark. */
+  nested?: boolean;
   action?: Action;
 }
 type View =
   | { type: "home"; page: number }
   | { type: "projects"; page: number }
-  | { type: "sessions"; page: number; projectId?: string; favorites?: boolean; chats?: boolean; attention?: boolean; finished?: boolean; working?: boolean }
+  | { type: "sessions"; page: number; projectId?: string; favorites?: boolean; chats?: boolean; attention?: boolean; finished?: boolean; working?: boolean; parentId?: string }
   | { type: "session"; page: number; id: string; follow?: boolean }
   | { type: "mcp"; page: number; sessionId: string }
   | { type: "confirm"; page: number; command: Command; label: string; sessionId?: string; request?: CompanionRequest }
@@ -54,6 +62,8 @@ export class Dashboard {
   now: () => number = Date.now;
   private lastActivity = new Map<string, string>();
   private finishedAt = new Map<string, number>();
+  reducedMotion = false;
+  private ring?: { id: string; shown: number };
 
   constructor(
     private execute: (command: Command) => Promise<void>,
@@ -70,6 +80,12 @@ export class Dashboard {
       value: question.choices.length ? String(question.choices.length) : undefined,
       action: { type: "view", view: { type: "question", page: 0 } },
     };
+  }
+
+  /** True when the one session waiting on you is open in the app with a question, so Needs you can go straight to it. */
+  private onlyWaitingIsQuestion(sessions: Snapshot["sessions"]): boolean {
+    const waiting = sessions.filter((row) => row.activity === "attention");
+    return waiting.length === 1 && Boolean(this.voice?.question) && this.voice?.activeSessionId === waiting[0]!.id;
   }
 
   /** The app's own MCP list, which only describes its active session. */
@@ -143,10 +159,24 @@ export class Dashboard {
     return this.finishedAt.has(id);
   }
 
+  /** Moves the drawn context ring a step toward the real value; a newly opened session fills up from empty. */
+  private easeRing(id: string, target: number | undefined): number | undefined {
+    if (target === undefined || !Number.isFinite(target)) {
+      this.ring = undefined;
+      return undefined;
+    }
+    const goal = Math.min(100, Math.max(0, target));
+    const from = this.ring?.id === id ? this.ring.shown : 0;
+    const shown = this.reducedMotion || Math.abs(goal - from) < 1 ? goal : from + (goal - from) * 0.35;
+    this.ring = { id, shown };
+    return shown;
+  }
+
   tiles(): Tile[] {
     const data = this.snapshot;
     if (data) this.trackFinished(data.sessions);
     if (this.view.type === "session") this.finishedAt.delete(this.sessionViewId(this.view));
+    else this.ring = undefined;
     const tiles: Tile[] = Array.from({ length: 15 }, () => ({ label: "" }));
     const unavailable = (label: string, icon: Icon): Tile => ({ label, icon, disabled: true });
     const viewTile = (label: string, icon: Icon, view: View, disabled = false): Tile =>
@@ -171,7 +201,9 @@ export class Dashboard {
         viewTile(this.voice?.activeSessionId ? "Active session" : "This session", "session", { type: "session", id: data.bridgeSessionId, follow: true, page: 0 }),
         this.voiceTile(),
         {
-          ...viewTile("Needs you", "attention", { type: "sessions", page: 0, attention: true }, !data.capabilities.sessions.available),
+          ...viewTile("Needs you", "attention", this.onlyWaitingIsQuestion(data.sessions)
+            ? { type: "question", page: 0 }
+            : { type: "sessions", page: 0, attention: true }, !data.capabilities.sessions.available),
           value: String(data.sessions.filter((row) => row.activity === "attention").length),
           activity: data.sessions.some((row) => row.activity === "attention") ? "attention" : undefined,
         },
@@ -187,15 +219,30 @@ export class Dashboard {
       items = data.projects.map((project) => ({ ...viewTile(project.name, "folder", { type: "sessions", projectId: project.id, page: 0 }), accent: project.accent }));
     } else if (this.view.type === "sessions") {
       const view = this.view;
-      items = data.sessions
-        .filter((session) => (!view.projectId || session.projectId === view.projectId) &&
+      const ids = new Set(data.sessions.map((row) => row.id));
+      const nested = (session: { parentId?: string }) => !!session.parentId && ids.has(session.parentId);
+      const children = (id: string) => data.sessions.filter((row) => row.parentId === id).length;
+      // Status lists stay flat so a busy or waiting sub-session is never hidden behind its parent.
+      const flat = view.attention || view.finished || view.working;
+      const rows = view.parentId
+        ? data.sessions.filter((row) => row.id === view.parentId || row.parentId === view.parentId)
+          .sort((a, b) => Number(a.id !== view.parentId) - Number(b.id !== view.parentId))
+        : data.sessions.filter((session) => (!view.projectId || session.projectId === view.projectId) &&
           (!view.favorites || session.pinned || this.favorites.has(session.id)) && (!view.chats || session.kind === "chat") &&
-          (!view.attention || session.activity === "attention") && (!view.finished || this.finished(session.id)) && (!view.working || session.activity === "working"))
-        .map((session) => ({
-          ...viewTile(session.name, "session", { type: "session", id: session.id, page: 0 }),
+          (!view.attention || session.activity === "attention") && (!view.finished || this.finished(session.id)) && (!view.working || session.activity === "working") &&
+          (flat || view.favorites || !nested(session)));
+      items = rows.map((session) => {
+        const count = view.parentId || flat ? 0 : children(session.id);
+        return {
+          ...viewTile(session.name, "session", count
+            ? { type: "sessions", parentId: session.id, page: 0 }
+            : { type: "session", id: session.id, page: 0 }),
           value: initials(session.name), activity: session.activity, flash: this.finished(session.id),
           accent: session.accent ?? data.projects.find((project) => project.id === session.projectId)?.accent,
-        }));
+          ...(count ? { children: count } : {}),
+          ...(view.parentId && session.id !== view.parentId ? { nested: true } : {}),
+        };
+      });
     } else if (this.view.type === "session") {
       const id = this.sessionViewId(this.view);
       const session = data.sessions.find((row) => row.id === id);
@@ -208,14 +255,18 @@ export class Dashboard {
       items = [
         { label: requested ? "Open requested" : "Open in app", icon: "open", disabled: requested || !data.capabilities.openSession.available || !session, action: { type: "command", command: { type: "openSession", id } } },
         { label: this.favorites.has(id) ? "Unfavorite" : "Favorite", icon: "star", selected: this.favorites.has(id), action: { type: "favorite", id } },
-        { label: "Model", value: details?.model ?? missing },
+        { ...modelTile(details?.model), value: details?.model ?? missing },
         { label: "Reasoning", value: details ? details.reasoning ?? "Default" : missing, disabled: !details },
-        { label: "Context used", value: details?.contextPercent === undefined ? missing : `${details.contextPercent.toFixed(0)}%`, gauge: details?.contextPercent },
+        { label: "Context used", value: details?.contextPercent === undefined ? missing : `${details.contextPercent.toFixed(0)}%`, gauge: details?.contextPercent, ring: this.easeRing(id, details?.contextPercent) },
         { label: "Context limit", value: details?.contextLimit === undefined ? missing : formatTokens(details.contextLimit) },
         { label: details?.creditsStatus === "complete" ? "AI credits" : details ? "Credits (partial)" : "AI credits", value: details?.aiCredits === undefined ? missing : details.aiCredits.toFixed(1) },
         viewTile("MCP servers", "grid", { type: "mcp", page: 0, sessionId: id }, !this.appMcp(id) && (!own || !data.capabilities.mcp.available)),
         this.voiceTile(id),
-        { label: this.loadingDetails && !appLive ? "Loading details" : statusLabel(session?.activity) ?? (own ? "Session status" : appLive ? "Live from app" : saved ? "Saved values" : "Bridge not running"), icon: "session", activity: session?.activity ?? "unknown" },
+        this.voice?.question && this.voice.activeSessionId === id
+          ? this.questionTile({ label: "" })
+          : session?.activity === "attention" && data.capabilities.openSession.available && !requested
+            ? { label: "Needs you", icon: "session", activity: "attention", action: { type: "command", command: { type: "openSession", id } } }
+            : { label: this.loadingDetails && !appLive ? "Loading details" : statusLabel(session?.activity) ?? (own ? "Session status" : appLive ? "Live from app" : saved ? "Saved values" : "Bridge not running"), icon: "session", activity: session?.activity ?? "unknown" },
       ];
     } else if (this.view.type === "mcp") {
       const sessionId = this.view.sessionId;
@@ -329,6 +380,30 @@ export class Dashboard {
 
 export function initials(name: string): string {
   return name.split(/[\s:_-]+/).filter(Boolean).slice(0, 2).map((word) => [...word][0]).join("").toUpperCase();
+}
+
+export type Provider = "anthropic" | "openai" | "google" | "xai" | "microsoft" | "auto";
+
+/** Model tile: a provider badge with a readable model name, e.g. "gpt-6-astra" becomes "GPT-6 Astra". */
+export function modelTile(model: string | undefined): { label: string; provider?: Provider } {
+  if (!model) return { label: "Model" };
+  const auto = /^auto\s*(?:→|->)\s*(.+)$/i.exec(model.trim());
+  const name = (auto ? auto[1]! : model).trim();
+  const id = name.toLowerCase();
+  const provider: Provider | undefined = /^claude\b/.test(id) ? "anthropic"
+    : /^(gpt|o\d|codex)\b/.test(id) ? "openai"
+      : /^gemini\b/.test(id) ? "google"
+        : /^grok\b/.test(id) ? "xai"
+          : /^mai\b/.test(id) ? "microsoft"
+            : id === "auto" ? "auto" : undefined;
+  if (!provider) return { label: "Model" };
+  const words = name.split(/[\s-]+/).filter(Boolean)
+    .map((word) => /^(gpt|mai)$/i.test(word) ? word.toUpperCase() : word[0]!.toUpperCase() + word.slice(1));
+  // The badge already shows the provider, so "Claude" is dropped to keep the name short; GPT stays joined to its version.
+  if (provider === "anthropic") words.shift();
+  if (provider === "openai" && words[0] === "GPT" && words[1]) words.splice(0, 2, `GPT-${words[1]}`);
+  const pretty = words.join(" ") || "Auto";
+  return { label: auto ? `Auto: ${pretty}` : pretty, provider };
 }
 
 function formatTokens(tokens: number): string {

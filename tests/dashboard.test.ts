@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { Dashboard } from "../src/plugin/dashboard.js";
+import { Dashboard, modelTile } from "../src/plugin/dashboard.js";
 import { renderTile, labelLines } from "../src/plugin/render.js";
 import type { Command } from "../src/shared/protocol.js";
 import { snapshot } from "./fixtures.js";
@@ -30,6 +30,27 @@ test("projects drill down into sessions and Back preserves the parent", async ()
   assert.equal(board.tiles()[0]?.activity, "working");
   await board.press(10);
   assert.equal(String(board.view.type), "projects");
+});
+
+test("context ring fills up from empty, eases to new values, and jumps with reduced motion", async () => {
+  const { board } = setup();
+  await board.press(6);
+  const goal = board.tiles()[4]!.gauge!;
+  board.view = { type: "home", page: 0 };
+  board.tiles();
+  await board.press(6);
+  const first = board.tiles()[4]!;
+  assert.equal(first.gauge, goal);
+  assert.ok(first.ring! > 0 && first.ring! < goal);
+  const second = board.tiles()[4]!.ring!;
+  assert.ok(second > first.ring! && second < goal);
+  for (let i = 0; i < 30; i++) board.tiles();
+  assert.equal(board.tiles()[4]!.ring, goal);
+  board.view = { type: "home", page: 0 };
+  board.tiles();
+  board.reducedMotion = true;
+  await board.press(6);
+  assert.equal(board.tiles()[4]!.ring, goal);
 });
 
 test("session details never leak attached-session metrics onto another session", async () => {
@@ -208,6 +229,8 @@ test("context gauge renders a clamped ring coloured by usage", () => {
   const full = renderTile({ label: "Context used", gauge: 140 });
   assert.match(full, /#ff747e/);
   assert.match(full, />100%</);
+  const easing = renderTile({ label: "Context used", gauge: 80, ring: 40 });
+  assert.match(easing, />40%</);
 });
 
 test("Needs you counts and filters sessions waiting on the user", async () => {
@@ -258,6 +281,23 @@ test("Live sessions opens the sessions that are working", async () => {
   const working = board.snapshot!.sessions.filter((row) => row.activity === "working");
   await board.press(9);
   assert.deepEqual(board.tiles().filter((row) => row.action?.type === "view").map((row) => row.label), working.map((row) => row.name));
+});
+
+test("model tile shows a provider badge and a readable model name", () => {
+  assert.deepEqual(modelTile("gpt-6-astra"), { label: "GPT-6 Astra", provider: "openai" });
+  assert.deepEqual(modelTile("claude-sonnet-5.5"), { label: "Sonnet 5.5", provider: "anthropic" });
+  assert.deepEqual(modelTile("gemini-3.8-flash"), { label: "Gemini 3.8 Flash", provider: "google" });
+  assert.deepEqual(modelTile("grok-4.7"), { label: "Grok 4.7", provider: "xai" });
+  assert.deepEqual(modelTile("mai-code-1.1-flash"), { label: "MAI Code 1.1 Flash", provider: "microsoft" });
+  assert.deepEqual(modelTile("auto"), { label: "Auto", provider: "auto" });
+  assert.deepEqual(modelTile("Auto → Claude Opus 5.5"), { label: "Auto: Opus 5.5", provider: "anthropic" });
+  assert.deepEqual(modelTile("some-new-model"), { label: "Model" });
+  assert.deepEqual(modelTile(undefined), { label: "Model" });
+  const svg = renderTile({ label: "GPT-6 Astra", value: "gpt-6-astra", provider: "openai" });
+  assert.match(svg, /<g transform="translate\([^"]+\) scale\([^"]+\)" fill="#ffffff"/);
+  assert.match(renderTile({ label: "Sonnet 5.5", value: "claude-sonnet-5.5", provider: "anthropic" }), /fill="#D97757"/);
+  assert.doesNotMatch(svg, />gpt-6-astra</);
+  assert.match(renderTile({ label: "Model", value: "x", provider: "__proto__" as never }), />x</);
 });
 
 test("attention tiles pulse unless motion is reduced", () => {

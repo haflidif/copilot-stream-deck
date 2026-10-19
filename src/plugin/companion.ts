@@ -110,7 +110,15 @@ export function parseNavFeed(message: unknown): NavFeed | undefined {
 export function withNavFeed(snapshot: Snapshot | undefined, feed: NavFeed, activeSessionId?: string): Snapshot {
   const on = { available: true };
   if (snapshot) {
-    return { ...snapshot, projects: feed.projects, sessions: feed.sessions,
+    // The app's feed leaves out nested sessions, so the bridge's children are kept and the links carried over.
+    const parents = new Map(snapshot.sessions.flatMap((row) => row.parentId ? [[row.id, row]] : []));
+    const sessions = feed.sessions.map((row) => {
+      const parentId = parents.get(row.id)?.parentId;
+      return parentId ? { ...row, parentId } : row;
+    });
+    const shown = new Set(sessions.map((row) => row.id));
+    for (const child of parents.values()) if (!shown.has(child.id)) sessions.push(child);
+    return { ...snapshot, projects: feed.projects, sessions,
       errors: snapshot.errors.filter((line) => !/^(projects|sessions): /.test(line)),
       capabilities: { ...snapshot.capabilities, projects: on, sessions: on, openSession: on, appPins: on } };
   }

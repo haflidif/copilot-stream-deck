@@ -4,7 +4,7 @@ import { mkdtemp, writeFile, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { decodeToolResult, validateSessionLink } from "../src/bridge/app-tools.js";
-import { AppProvider, normalizeSessions } from "../src/bridge/provider.js";
+import { AppProvider, nestedSessions, normalizeSessions } from "../src/bridge/provider.js";
 import { startBridge } from "../src/bridge/server.js";
 import { parseCommand, parseDescriptor, parseSnapshot, type Command } from "../src/shared/protocol.js";
 import { joinedSession, snapshot } from "./fixtures.js";
@@ -75,7 +75,7 @@ test("provider combines app-wide state and attached-session metrics, with one sh
   try {
     const [first, second] = await Promise.all([provider.snapshot(), provider.snapshot()]);
     assert.equal(first, second);
-    assert.equal(calls, 2);
+    assert.equal(calls, 3);
     assert.equal(first.projects[0]?.name, "Example");
     assert.equal(first.details?.aiCredits, 2.5);
     assert.equal(first.details?.contextPercent, 25);
@@ -83,6 +83,39 @@ test("provider combines app-wide state and attached-session metrics, with one sh
     assert.equal(first.capabilities.appPins.available, false);
     assert.deepEqual(first.errors, []);
     parseSnapshot(JSON.parse(JSON.stringify(first)));
+  } finally { provider.dispose(); }
+});
+
+test("nested sessions come from the app catalog and are cached", async () => {
+  const children = nestedSessions([
+    { id: "parent", name: "Parent", project_id: "p1", type: "session" },
+    { id: "child", name: "Child", project_id: "p1", type: "session", creator_session_id: "parent", coordinating_creator_session_id: "parent" },
+    { id: "orphan", name: "Orphan", creator_session_id: "gone" },
+    { id: "self", creator_session_id: "self" },
+  ]);
+  assert.deepEqual([...children.values()], [{ id: "child", parentId: "parent", activity: "unknown", name: "Child", kind: "session", projectId: "p1" }]);
+
+  const session = joinedSession();
+  let catalogCalls = 0;
+  const execute = session.rpc.tools.execute;
+  session.rpc.tools.execute = async (params) => {
+    if (params.name === "list_sessions_and_chats") {
+      catalogCalls++;
+      return { resultType: "success", textResultForLlm: JSON.stringify([
+        { id: "attached", name: "Example session", project_id: "p1" },
+        { id: "sub", name: "Sub task", project_id: "p1", creator_session_id: "attached" },
+      ]) };
+    }
+    return execute(params);
+  };
+  const provider = new AppProvider(session);
+  try {
+    const first = await provider.snapshot();
+    assert.deepEqual(first.sessions.map((row) => `${row.id}:${row.parentId ?? "-"}`), ["attached:-", "sub:attached"]);
+    assert.equal(parseSnapshot(JSON.parse(JSON.stringify(first))).sessions[1]?.parentId, "attached");
+    await provider.command({ type: "setMcp", name: "example", enabled: false });
+    await provider.snapshot();
+    assert.equal(catalogCalls, 1);
   } finally { provider.dispose(); }
 });
 

@@ -1,5 +1,6 @@
 import type { Tile, Icon } from "./dashboard.js";
 import { icons } from "./icons.js";
+import { brands } from "./brands.js";
 
 const paths: Record<Icon, string> = Object.fromEntries(Object.entries(icons)
   .map(([key, list]) => [key, list.map((d) => `<path d="${d}"/>`).join("")])) as Record<Icon, string>;
@@ -37,6 +38,17 @@ const accents: Record<string, string> = {
   yellow: "#d29922", pink: "#db61a2", teal: "#39c5cf", cyan: "#39c5cf", coral: "#f78166", gray: "#8b949e", grey: "#8b949e",
 };
 
+/** Provider logos (see brands.ts). Single-colour marks are drawn in white on the dark tile. */
+function providerBadge(provider: string, tall: boolean): string | undefined {
+  if (!Object.hasOwn(brands, provider)) return;
+  const size = tall ? 60 : 68;
+  const top = tall ? 14 : 18;
+  const scale = (size * 0.72) / 24;
+  const inset = (size - 24 * scale) / 2;
+  return `<rect x="${72 - size / 2}" y="${top}" width="${size}" height="${size}" rx="16" fill="#ffffff" fill-opacity="0.08"/>`
+    + `<g transform="translate(${(72 - size / 2 + inset).toFixed(2)} ${(top + inset).toFixed(2)}) scale(${scale.toFixed(4)})" fill="#ffffff" fill-rule="evenodd">${brands[provider]}</g>`;
+}
+
 export function renderTile(tile: Tile, frame = 0, reducedMotion = false): string {
   if (!tile.label && !tile.icon && !tile.value && !tile.activity) {
     return '<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144"><rect width="144" height="144" rx="13" fill="#0d1117"/></svg>';
@@ -59,8 +71,10 @@ export function renderTile(tile: Tile, frame = 0, reducedMotion = false): string
       const y = (tall ? 22 : 26) + Math.floor(i / 2) * (tall ? 22 : 26);
       return `<circle cx="${x}" cy="${y}" r="8" fill="${color}" opacity="${i < count ? 1 : 0.12}"/>`;
     }).join("");
+  } else if (tile.provider && providerBadge(tile.provider, tall)) {
+    center = providerBadge(tile.provider, tall)!;
   } else if (tile.gauge !== undefined && Number.isFinite(tile.gauge)) {
-    const percent = Math.min(100, Math.max(0, tile.gauge));
+    const percent = Math.min(100, Math.max(0, tile.ring !== undefined && Number.isFinite(tile.ring) ? tile.ring : tile.gauge));
     const ring = percent >= 85 ? "#ff747e" : percent >= 60 ? "#ffc569" : "#5be3a5";
     const r = tall ? 30 : 36;
     const cy = tall ? 46 : 52;
@@ -85,6 +99,11 @@ export function renderTile(tile: Tile, frame = 0, reducedMotion = false): string
         : tile.activity === "ready" ? `<circle cx="122" cy="22" r="14" fill="${color}"/><path d="m115 22 5 5 9-10" fill="none" stroke="#0d1117" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>`
         : `<circle cx="124" cy="20" r="7" fill="${tile.activity === "idle" ? "#8b949e" : "#484f58"}"/>`
     : "";
+  const count = tile.children && tile.children > 0 ? (tile.children > 9 ? "9+" : String(tile.children)) : "";
+  const group = count
+    ? `<rect x="8" y="10" width="${count.length > 1 ? 46 : 38}" height="26" rx="13" fill="#e6edf3"/><text x="${count.length > 1 ? 31 : 27}" y="29" text-anchor="middle" fill="#0d1117" font-size="18" font-weight="800">+${count}</text>`
+    : tile.nested ? `<path d="M16 14v14h14" fill="none" stroke="#8b949e" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="m25 22 6 6-6 6" fill="none" stroke="#8b949e" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`
+      : "";
   const pulse = (tile.activity === "attention" || tile.recording) && !reducedMotion && !tile.disabled
     ? (() => {
       const level = [0.15, 0.3, 0.5, 0.7, 0.9, 1, 1, 0.9, 0.7, 0.5, 0.3, 0.15][((frame % 12) + 12) % 12]!;
@@ -99,7 +118,7 @@ export function renderTile(tile: Tile, frame = 0, reducedMotion = false): string
 <defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#1c2230"/><stop offset="1" stop-color="#0d1117"/></linearGradient><clipPath id="tile"><rect width="144" height="144" rx="13"/></clipPath></defs>
 <rect width="144" height="144" rx="13" fill="url(#bg)"/>${strip}${pulse}
 <g opacity="${disabled}" font-family="Segoe UI, Arial, sans-serif">
-${center}${badge}${label}</g></svg>`;
+${center}${badge}${group}${label}</g></svg>`;
 }
 
 export function tileDataUrl(tile: Tile, frame: number, reducedMotion: boolean): string {
