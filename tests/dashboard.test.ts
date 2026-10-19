@@ -17,8 +17,9 @@ function setup() {
 test("home has 15 tiles and never advertises unverified voice or pins", () => {
   const { board } = setup();
   assert.equal(board.tiles().length, 15);
-  assert.equal(board.tiles()[7]?.label, "Working");
+  assert.equal(board.tiles()[7]?.label, "Psst!");
   assert.equal(board.tiles()[7]?.busy, 1);
+  assert.equal(board.tiles()[7]?.mood?.alert, true);
   assert.equal(board.tiles()[8]?.label, "Needs you");
 });
 
@@ -325,6 +326,8 @@ test("opening a finished session on the deck clears its flash", async () => {
 
 test("Working opens the sessions that are working", async () => {
   const { board } = setup();
+  board.snapshot = { ...board.snapshot!, sessions: board.snapshot!.sessions.map((row) => row.activity === "attention" ? { ...row, activity: "idle" as const } : row) };
+  assert.equal(board.tiles()[7]?.label, "Working");
   const working = board.snapshot!.sessions.filter((row) => row.activity === "working");
   await board.press(7);
   assert.deepEqual(board.tiles().filter((row) => row.action?.type === "view").map((row) => row.label), working.map((row) => row.name));
@@ -392,4 +395,19 @@ test("Working key animates Copilot for busy sessions and stays still with reduce
   const { board } = setup();
   board.snapshot = { ...board.snapshot!, sessions: board.snapshot!.sessions.map((row) => ({ ...row, activity: "idle" as const })) };
   assert.equal(board.tiles()[7]?.label, "Sleeping");
+});
+
+test("Copilot reacts: Psst! opens what needs you, and a nearly full context makes it sweat", async () => {
+  const { board } = setup();
+  const waiting = board.snapshot!.sessions.filter((row) => row.activity === "attention");
+  await board.press(7);
+  assert.deepEqual(board.tiles().filter((row) => row.action?.type === "view").map((row) => row.label), waiting.map((row) => row.name));
+  await board.press(12);
+  assert.equal(board.tiles()[7]?.mood?.sweat, false);
+  board.snapshot = { ...board.snapshot!, details: { ...board.snapshot!.details!, contextPercent: 91 } };
+  assert.equal(board.tiles()[7]?.mood?.sweat, true);
+  const startled = renderTile({ label: "Psst!", busy: 0, mood: { alert: true } }, 0);
+  assert.match(startled, />!<\/text>/);
+  assert.doesNotMatch(startled, />z<\/text>/);
+  assert.match(renderTile({ label: "Working", busy: 1, mood: { sweat: true } }, 0), /#79c0ff/);
 });

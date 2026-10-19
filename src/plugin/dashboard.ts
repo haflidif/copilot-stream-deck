@@ -29,6 +29,8 @@ export interface Tile {
   nested?: boolean;
   /** Busy session count; draws an animated Copilot that dozes off when nothing is running. */
   busy?: number;
+  /** Copilot reactions: startled when a session needs you, sweating when context is nearly full. */
+  mood?: { alert?: boolean; sweat?: boolean };
   action?: Action;
 }
 type View =
@@ -213,7 +215,16 @@ export class Dashboard {
         viewTile(this.voice?.activeSessionId ? "Active session" : "This session", "copilot", { type: "session", id: data.bridgeSessionId, follow: true, page: 0 }),
         (() => {
           const busy = data.sessions.filter((row) => row.activity === "working").length;
-          return { ...viewTile(busy ? "Working" : "Sleeping", "session", { type: "sessions", page: 0, working: true }, !data.capabilities.sessions.available), busy };
+          const alert = data.sessions.some((row) => row.activity === "attention") || Boolean(this.voice?.question);
+          const context = (this.voice?.active ?? data.details)?.contextPercent;
+          const sweat = context !== undefined && context >= 85;
+          const label = alert ? "Psst!" : busy ? "Working" : "Sleeping";
+          const view: View = alert
+            ? this.onlyWaitingIsQuestion(data.sessions) || (this.voice?.question && !data.sessions.some((row) => row.activity === "attention"))
+              ? { type: "question", page: 0 } : { type: "sessions", page: 0, attention: true }
+            : { type: "sessions", page: 0, working: true };
+          return { ...viewTile(label, "session", view, !data.capabilities.sessions.available), busy,
+            ...(alert || sweat ? { mood: { alert, sweat } } : {}) };
         })(),
         {
           ...viewTile("Needs you", "attention", this.onlyWaitingIsQuestion(data.sessions)
