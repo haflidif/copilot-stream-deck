@@ -152,11 +152,13 @@ test("animation changes frames, reduced motion freezes them, and text is escaped
   assert.equal(renderTile(tile, 0, true), renderTile(tile, 5, true));
   assert.match(renderTile(tile), /&lt;tag&gt; &amp; &quot;x&quot;/);
   assert.equal(labelLines("a very long session title with words").length, 2);
-  assert.ok(labelLines("a very long session title with words").every((line) => [...line].length <= 15));
+  assert.ok(labelLines("a very long session title with words").every((line) => [...line].length <= 12));
   assert.deepEqual(labelLines("azureviking_blog"), ["azureviking_", "blog"]);
   assert.deepEqual(labelLines("cost-optimization"), ["cost-", "optimization"]);
-  assert.deepEqual(labelLines("lm-alz-documentation"), ["lm-alz-", "documentation"]);
-  assert.deepEqual(labelLines("github-copilot-stream-deck"), ["github-copilot-", "stream-deck"]);
+  assert.deepEqual(labelLines("lm-alz-documentation", 14), ["lm-alz-", "documentation"]);
+  assert.deepEqual(labelLines("github-copilot-stream-deck", 15), ["github-copilot-", "stream-deck"]);
+  const long = renderTile({ label: "lm-alz-documentation" });
+  assert.match(long, /font-size="18"[^>]*>documentation</);
 });
 
 test("unused positions stay blank rather than looking like active controls", () => {
@@ -199,7 +201,7 @@ test("non-running sessions show saved history values without enabling MCP", asyn
 test("context gauge renders a clamped ring coloured by usage", () => {
   const low = renderTile({ label: "Context used", value: "25%", gauge: 25 });
   assert.match(low, /#5be3a5/);
-  assert.match(low, /stroke-dasharray="51\.8 207\.3"/);
+  assert.match(low, /stroke-dasharray="56\.5 226\.2"/);
   assert.match(low, />25%</);
   assert.doesNotMatch(low, /fill="#21262d"/);
   assert.match(renderTile({ label: "Context used", gauge: 70 }), /#ffc569/);

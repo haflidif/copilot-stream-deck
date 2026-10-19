@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseNavFeed, withNavFeed } from "../src/plugin/companion.js";
+import { Dashboard } from "../src/plugin/dashboard.js";
 import { snapshot } from "./fixtures.js";
 
 const message = {
@@ -27,7 +28,7 @@ test("reads projects and sessions from the app sidebar", () => {
   const feed = parseNavFeed(message);
   assert.deepEqual(feed?.projects, [{ id: "p-1", name: "Deck" }]);
   assert.deepEqual(feed?.sessions, [
-    { id: "s-1", name: "Feed work", kind: "session", activity: "attention", projectId: "p-1" },
+    { id: "s-1", name: "Feed work", kind: "session", activity: "attention", projectId: "p-1", pinned: true },
     { id: "c-1", name: "New chat", kind: "chat", activity: "working" },
     { id: "s-2", name: "Broken", kind: "session", activity: "error", projectId: "p-1" },
     { id: "s-3", name: "Ship it", kind: "session", activity: "ready", projectId: "p-1" },
@@ -49,4 +50,14 @@ test("the feed replaces bridge lists and stands in when no bridge answers", () =
   assert.equal(alone.capabilities.openSession.available, true);
   assert.equal(alone.capabilities.newChat.available, false);
   assert.deepEqual(alone.errors, []);
+});
+
+test("the home Pinned tile lists app pins alongside local favorites", async () => {
+  const board = new Dashboard(async () => {}, async () => {});
+  board.snapshot = withNavFeed(snapshot(), parseNavFeed(message)!, "s-1");
+  board.favorites = new Set(["c-1"]);
+  assert.equal(board.tiles()[3]?.label, "Pinned");
+  await board.press(3);
+  assert.deepEqual(board.tiles().slice(0, 2).map((tile) => tile.label), ["Feed work", "New chat"]);
+  assert.notEqual(board.tiles()[2]?.label, "Broken");
 });

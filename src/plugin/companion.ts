@@ -59,6 +59,7 @@ export function parseNavFeed(message: unknown): NavFeed | undefined {
     if (row.kind === "project" && id) projects.push({ id, name: label(row.label) ?? "Project" });
   }
   const sessions = new Map<string, AppSession>();
+  const pinned = new Set<string>();
   for (const [key, collection] of Object.entries(collections as Record<string, unknown>)) {
     const items = collection && typeof collection === "object" ? (collection as Record<string, unknown>).items : undefined;
     if (!Array.isArray(items)) continue;
@@ -69,6 +70,7 @@ export function parseNavFeed(message: unknown): NavFeed | undefined {
       const id = feedId(row.id);
       if (!id || (row.kind !== "workspace" && row.kind !== "chat")) continue;
       const chat = row.kind === "chat";
+      if (key === "pinned") pinned.add(id);
       const known = sessions.get(id);
       // Pinned items repeat a session, so keep the copy that knows its project.
       if (known && (known.projectId || !projectId)) continue;
@@ -79,6 +81,7 @@ export function parseNavFeed(message: unknown): NavFeed | undefined {
       });
     }
   }
+  for (const id of pinned) sessions.get(id)!.pinned = true;
   return { projects, sessions: [...sessions.values()] };
 }
 
@@ -88,13 +91,13 @@ export function withNavFeed(snapshot: Snapshot | undefined, feed: NavFeed, activ
   if (snapshot) {
     return { ...snapshot, projects: feed.projects, sessions: feed.sessions,
       errors: snapshot.errors.filter((line) => !/^(projects|sessions): /.test(line)),
-      capabilities: { ...snapshot.capabilities, projects: on, sessions: on, openSession: on } };
+      capabilities: { ...snapshot.capabilities, projects: on, sessions: on, openSession: on, appPins: on } };
   }
   const off = { available: false, reason: "Load the Copilot Companion extension in a session for this" };
   return {
     version: 1, capturedAt: new Date().toISOString(), bridgeSessionId: activeSessionId ?? "",
     projects: feed.projects, sessions: feed.sessions, mcp: [], errors: [],
-    capabilities: { projects: on, sessions: on, openSession: on, newChat: off, details: off, mcp: off, voice: on, appPins: off },
+    capabilities: { projects: on, sessions: on, openSession: on, newChat: off, details: off, mcp: off, voice: on, appPins: on },
   };
 }
 

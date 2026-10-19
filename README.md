@@ -15,13 +15,13 @@ This is a working starter, not feature parity with Logitech's Copilot integratio
 - A confirmed action to create an idle standalone local chat, without starting an agent or creating a code checkout.
 - Model, reasoning, context usage, context limit and AI credits for the session running the bridge.
 - Confirmed MCP enable/disable controls for that same session.
-- Local favorites, stored in Stream Deck plugin settings.
+- Local favorites, stored in Stream Deck plugin settings, shown together with the sessions pinned in the app.
 - An authenticated loopback bridge, with no GitHub credentials entered into Stream Deck.
 
 **Push to talk:** the mic tile uses the Copilot app's "Companion device integration" experiment (Settings, Experiments), the same local API the Logitech keypad uses. Turn it on and install the app's voice model. Hold the key to talk, release to stop. Dictation goes to the session that is active in the app window. The same feed gives live model, reasoning, context and credits for the session open in the app window, so that session shows live values even without its bridge. This API is undocumented and may change. With the experiment on, the home "This session" key becomes "Active session" and always follows the session open in the app window. "Open in app" switches sessions directly through the app (no deep link), and "New" offers "In this project" (a new session in the project the app window is showing) or "New chat" (a standalone chat, through the bridge).
 **Answer questions:** when the session open in the app window is waiting on a question, the home "Live sessions" key turns into a pulsing "Answer question" key. Press it to get one key per choice (the app only shares the start of each label), plus "Type answer" when free text is allowed, which moves focus to the app's answer box. A choice is sent as soon as you press it. This uses the same companion API.
 
-**Not connected yet:** app-pinned chats, model/reasoning selection, and MCP control for sessions other than the attached bridge session. Unavailable features are explicitly marked. Idle does not mean completed.
+**Not connected yet:** pinning or unpinning from the deck, model/reasoning selection, and MCP control for sessions other than the attached bridge session. Unavailable features are explicitly marked. Idle does not mean completed.
 
 See [the integration findings](docs/integration.md) for the complete feature matrix and remaining work.
 

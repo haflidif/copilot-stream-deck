@@ -11,6 +11,8 @@ export interface AppSession {
   projectId?: string;
   activity: Activity;
   kind: "session" | "chat";
+  /** Pinned in the Copilot app sidebar. */
+  pinned?: boolean;
 }
 
 export interface Capability {

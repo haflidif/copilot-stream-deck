@@ -69,11 +69,13 @@ test("compiled plugin registers, renders 15 keys, navigates, animates and stops 
       events.on("message", listener);
     });
   }
+  // Labels can wrap over two <text> lines, so append the visible text joined by spaces.
   const images = (context: string): string[] => messages
     .filter((message) => message.event === "setImage" && message.context === context)
     .map((message) => {
       const payload = message.payload as { image: string };
-      return Buffer.from(payload.image.split(",")[1]!, "base64").toString("utf8");
+      const svg = Buffer.from(payload.image.split(",")[1]!, "base64").toString("utf8");
+      return `${svg}\n${[...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((match) => match[1]).join(" ")}`;
     });
   try {
     const socket = await connected;

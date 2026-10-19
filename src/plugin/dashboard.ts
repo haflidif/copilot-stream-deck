@@ -127,7 +127,9 @@ export class Dashboard {
           : viewTile("New chat", "plus", { type: "confirm", page: 0, command: { type: "newChat" }, label: "Create chat?" }, !data.capabilities.newChat.available),
         viewTile("Projects", "folder", { type: "projects", page: 0 }, !data.capabilities.projects.available),
         viewTile("Sessions", "chat", { type: "sessions", page: 0 }, !data.capabilities.sessions.available),
-        viewTile("Favorites", "star", { type: "sessions", page: 0, favorites: true }, !data.capabilities.sessions.available),
+        data.capabilities.appPins.available
+          ? viewTile("Pinned", "pin", { type: "sessions", page: 0, favorites: true }, !data.capabilities.sessions.available)
+          : viewTile("Favorites", "star", { type: "sessions", page: 0, favorites: true }, !data.capabilities.sessions.available),
         viewTile("MCP servers", "grid", { type: "mcp", page: 0, sessionId: data.bridgeSessionId }, !data.capabilities.mcp.available),
         viewTile("Chats", "chat", { type: "sessions", page: 0, chats: true }, !data.capabilities.sessions.available),
         viewTile(this.voice?.activeSessionId ? "Active session" : "This session", "session", { type: "session", id: data.bridgeSessionId, follow: true, page: 0 }),
@@ -145,7 +147,7 @@ export class Dashboard {
       const view = this.view;
       items = data.sessions
         .filter((session) => (!view.projectId || session.projectId === view.projectId) &&
-          (!view.favorites || this.favorites.has(session.id)) && (!view.chats || session.kind === "chat") &&
+          (!view.favorites || session.pinned || this.favorites.has(session.id)) && (!view.chats || session.kind === "chat") &&
           (!view.attention || session.activity === "attention"))
         .map((session) => ({
           ...viewTile(session.name, "session", { type: "session", id: session.id, page: 0 }),
