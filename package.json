@@ -5,6 +5,7 @@
   "type": "module",
   "description": "An unofficial Elgato Stream Deck companion for the GitHub Copilot app.",
   "license": "MIT",
+  "repository": "github:haflidif/copilot-stream-deck",
   "engines": {
     "node": ">=20.19.0"
   },

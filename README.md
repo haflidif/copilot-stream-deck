@@ -60,7 +60,7 @@ See [the integration findings](docs/integration.md) for the complete feature mat
 
 The plugin is shared through GitHub Releases, not the Elgato Marketplace.
 
-1. Download `com.haflidif.copilot.streamDeckPlugin` from the latest release and double-click it. Stream Deck installs it.
+1. Download `com.haflidif.copilot.streamDeckPlugin` from the [latest release](https://github.com/haflidif/copilot-stream-deck/releases/latest) and double-click it. Stream Deck installs it.
 2. In the GitHub Copilot app, turn on **Companion device integration** (experimental). The deck reads projects and sessions from it.
 3. Create a new Stream Deck profile and drag **Copilot Companion > Dashboard tile (15-key)** onto all 15 keys.
 
