@@ -66,7 +66,7 @@ The plugin is shared through GitHub Releases, not the Elgato Marketplace.
 2. In the GitHub Copilot app, turn on **Companion device integration** (experimental). The deck reads projects and sessions from it.
 3. If Stream Deck offers the bundled profile, accept it, then select **Copilot Companion** in the profile dropdown. All 15 keys are already configured. Installation leaves your current profile selected and does not replace your existing layouts.
 
-The bundled profile is included in new builds from this source; the original **v0.1.0** release does not contain it. For that release, create a dedicated profile and drag **Copilot Companion > Dashboard tile (15-key)** onto all 15 keys. If you already have the plugin installed, you can also import `copilot-companion.streamDeckProfile` from a build or a release that provides it by double-clicking the file.
+The bundled profile is included from **v0.1.1**. If you already have the plugin installed, you can also download `copilot-companion.streamDeckProfile` from the release and double-click it to import the ready-made layout. If your existing Copilot profile already works, keep using it; there is no need to import another copy.
 
 The optional session bridge (live model, context and MCP controls for a session) is installed from source with `npm run extension:install`, see below.
 
