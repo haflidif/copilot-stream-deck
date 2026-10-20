@@ -3,11 +3,14 @@ import { copyFile, mkdir, writeFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { deflateSync } from "node:zlib";
 
-await Promise.all(["plugin.js", "plugin.js.map"].map((name) => rm(resolve("com.haflidif.copilot.sdPlugin/bin", name), { force: true })));
+// Release builds leave the source map out so the packed plugin stays small.
+const release = process.argv.includes("--release");
+
+await Promise.all(["plugin.js", "plugin.js.map", "plugin.mjs.map"].map((name) => rm(resolve("com.haflidif.copilot.sdPlugin/bin", name), { force: true })));
 await Promise.all([
   build({
     entryPoints: ["src/plugin/plugin.ts"], outfile: "com.haflidif.copilot.sdPlugin/bin/plugin.mjs",
-    bundle: true, platform: "node", format: "esm", target: "node20", sourcemap: true,
+    bundle: true, platform: "node", format: "esm", target: "node20", sourcemap: !release,
     banner: { js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);" },
   }),
   build({

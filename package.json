@@ -4,17 +4,20 @@
   "private": true,
   "type": "module",
   "description": "An unofficial Elgato Stream Deck companion for the GitHub Copilot app.",
+  "license": "MIT",
   "engines": {
     "node": ">=20.19.0"
   },
   "scripts": {
     "build": "node scripts/build.mjs",
     "preview": "node --import tsx scripts/preview.ts",
+    "screenshots": "tsx scripts/screenshots.ts",
     "typecheck": "tsc --noEmit",
     "test": "npm run build && node --import tsx --test tests/*.test.ts",
     "validate": "npm run typecheck && npm test",
     "plugin:validate": "streamdeck validate com.haflidif.copilot.sdPlugin",
     "plugin:pack": "streamdeck pack com.haflidif.copilot.sdPlugin --output dist --force",
+    "release": "node scripts/build.mjs --release && streamdeck validate com.haflidif.copilot.sdPlugin && streamdeck pack com.haflidif.copilot.sdPlugin --output dist --force",
     "plugin:link": "streamdeck link com.haflidif.copilot.sdPlugin",
     "extension:install": "npm run build && node scripts/install-extension.mjs",
     "icons": "node scripts/gen-icons.mjs"

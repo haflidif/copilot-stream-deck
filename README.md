@@ -2,7 +2,25 @@
 
 An unofficial, Windows-first companion for the GitHub Copilot desktop app, designed for the original 15-key Stream Deck and MK.2.
 
+![Home and session views on a 15-key Stream Deck](docs/images/hero.png)
+
 This is a working starter, not feature parity with Logitech's Copilot integration. It connects to the **existing app** through an experimental Copilot extension bridge. It does not start an independent Copilot SDK runtime, scrape app databases, or automate mouse clicks.
+
+## Screenshots
+
+The pictures use made-up demo data and are rendered with the plugin's own drawing code (`npm run screenshots`).
+
+| Projects | Sessions |
+| --- | --- |
+| ![Projects view](docs/images/projects.png) | ![Sessions view](docs/images/sessions.png) |
+
+Copilot on the Home key reacts to what is going on: it works, sleeps, asks for you, and sweats when the context is nearly full.
+
+![Copilot moods: working, sleeping, needs you and context nearly full](docs/images/moods.png)
+
+When a session finishes, its key fires a few bursts of confetti.
+
+![Confetti bursts on a finished session](docs/images/confetti.png)
 
 ## Included
 
@@ -38,6 +56,24 @@ See [the integration findings](docs/integration.md) for the complete feature mat
 - Node.js 20.19 or later for development.
 - A GitHub Copilot app build supporting `@github/copilot-sdk/extension`, session RPC and app tool execution. This is an experimental, version-dependent integration.
 
+## Install
+
+The plugin is shared through GitHub Releases, not the Elgato Marketplace.
+
+1. Download `com.haflidif.copilot.streamDeckPlugin` from the latest release and double-click it. Stream Deck installs it.
+2. In the GitHub Copilot app, turn on **Companion device integration** (experimental). The deck reads projects and sessions from it.
+3. Create a new Stream Deck profile and drag **Copilot Companion > Dashboard tile (15-key)** onto all 15 keys.
+
+The optional session bridge (live model, context and MCP controls for a session) is installed from source with `npm run extension:install`, see below.
+
+## Release
+
+```powershell
+npm run release
+```
+
+This builds without the source map, runs the Elgato validator and writes `dist\com.haflidif.copilot.streamDeckPlugin`. Bump `Version` in the manifest and `version` in `package.json` first, then attach the file to a GitHub Release.
+
 ## Build and use
 
 Run these commands from the repository:
@@ -50,7 +86,7 @@ npm run plugin:validate
 npm run plugin:pack
 ```
 
-Use your approved npm registry. This environment uses the configured internal Microsoft proxy.
+Use your usual npm registry.
 
 1. Run `npm run extension:install`. This builds the bridge and copies it to `%USERPROFILE%\.copilot\extensions\copilot-stream-deck\`, making it discoverable by Copilot runtimes outside this repository. It does not start a runtime for every conversation in the sidebar. Existing running runtimes need an extension reload to discover it. Run the install command again after changing bridge code.
 2. Install `dist\com.haflidif.copilot.streamDeckPlugin` by opening it in Windows.
@@ -102,3 +138,8 @@ This project is not an official GitHub or Elgato product. The six-dot graphics a
 Tile icons come from [GitHub Primer Octicons](https://github.com/primer/octicons) (MIT License, Copyright GitHub Inc.). `npm run icons` regenerates `src/plugin/icons.ts` with only the icons the deck uses. "Open in app" uses the GitHub mark and the session keys use the Copilot icon. Icons and values are coloured with GitHub Primer colours, and the Copilot icon uses a purple to blue gradient. Status colours (attention, error, finished) and project colours always take priority. The GitHub and Copilot marks are trademarks of GitHub, Inc.
 
 The Model key shows the provider's logo (Anthropic Claude, OpenAI, Google Gemini, xAI Grok, Microsoft, and the GitHub Copilot mark for Auto) above a short model name. The logos come from [LobeHub Icons](https://github.com/lobehub/lobe-icons) (MIT License) and are kept in `src/plugin/brands.ts`. They are trademarks of their owners and are only used to show where a model comes from. This project is not affiliated with or endorsed by any of them. See [NOTICE.md](NOTICE.md).
+
+## License
+
+MIT, see [LICENSE](LICENSE). Trademark notes are in [NOTICE.md](NOTICE.md).
+
