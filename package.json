@@ -13,6 +13,7 @@
     "build": "node scripts/build.mjs",
     "preview": "node --import tsx scripts/preview.ts",
     "screenshots": "tsx scripts/screenshots.ts",
+    "gif": "tsx scripts/gif.ts",
     "typecheck": "tsc --noEmit",
     "test": "npm run build && node --import tsx --test tests/*.test.ts",
     "validate": "npm run typecheck && npm test",
@@ -29,9 +30,11 @@
   "devDependencies": {
     "@elgato/cli": "1.10.2",
     "@primer/octicons": "^19.40.0",
+    "@resvg/resvg-js": "^2.6.2",
     "@types/node": "^22.0.0",
     "@types/ws": "^8.18.0",
     "esbuild": "0.28.2",
+    "gifenc": "^1.0.3",
     "tsx": "^4.20.0",
     "typescript": "5.9.3",
     "ws": "^8.18.0"

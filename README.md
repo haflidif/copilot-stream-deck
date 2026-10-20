@@ -2,13 +2,15 @@
 
 An unofficial, Windows-first companion for the GitHub Copilot desktop app, designed for the original 15-key Stream Deck and MK.2.
 
-![Home and session views on a 15-key Stream Deck](docs/images/hero.png)
+![Tapping through Projects, a session and back Home, where a finished session gets confetti](docs/images/navigation.gif)
 
 This is a working starter, not feature parity with Logitech's Copilot integration. It connects to the **existing app** through an experimental Copilot extension bridge. It does not start an independent Copilot SDK runtime, scrape app databases, or automate mouse clicks.
 
 ## Screenshots
 
-The pictures use made-up demo data and are rendered with the plugin's own drawing code (`npm run screenshots`).
+The pictures use made-up demo data and are rendered with the plugin's own drawing code (`npm run screenshots` for the pictures, `npm run gif` for the animation).
+
+![Home and session views on a 15-key Stream Deck](docs/images/hero.png)
 
 | Projects | Sessions |
 | --- | --- |
