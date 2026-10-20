@@ -2,6 +2,7 @@ node_modules/
 dist/
 com.haflidif.copilot.sdPlugin/bin/
 com.haflidif.copilot.sdPlugin/logs/
+com.haflidif.copilot.sdPlugin/profiles/*.streamDeckProfile
 *.streamDeckPlugin
 *.log
 .env

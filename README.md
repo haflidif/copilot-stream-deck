@@ -64,9 +64,25 @@ The plugin is shared through GitHub Releases, not the Elgato Marketplace.
 
 1. Download `com.haflidif.copilot.streamDeckPlugin` from the [latest release](https://github.com/haflidif/copilot-stream-deck/releases/latest) and double-click it. Stream Deck installs it.
 2. In the GitHub Copilot app, turn on **Companion device integration** (experimental). The deck reads projects and sessions from it.
-3. Create a new Stream Deck profile and drag **Copilot Companion > Dashboard tile (15-key)** onto all 15 keys.
+3. If Stream Deck offers the bundled profile, accept it, then select **Copilot Companion** in the profile dropdown. All 15 keys are already configured. Installation leaves your current profile selected and does not replace your existing layouts.
+
+The bundled profile is included in new builds from this source; the original **v0.1.0** release does not contain it. For that release, create a dedicated profile and drag **Copilot Companion > Dashboard tile (15-key)** onto all 15 keys. If you already have the plugin installed, you can also import `copilot-companion.streamDeckProfile` from a build or a release that provides it by double-clicking the file.
 
 The optional session bridge (live model, context and MCP controls for a session) is installed from source with `npm run extension:install`, see below.
+
+### Switch automatically when Copilot is active
+
+Stream Deck's built-in **Smart Profiles** can switch to the Copilot layout when the GitHub Copilot app is in the foreground. This is optional and only needs to be configured once.
+
+1. Open GitHub Copilot, then open **Stream Deck > Preferences > Profiles**.
+2. Select the **Copilot Companion** profile.
+3. In the **Application** dropdown, choose **GitHub Copilot**. If it is not listed, choose **Other...** and locate the app's executable.
+4. Leave **Make this my default profile** unchecked if you want to keep your normal default layout outside Copilot.
+5. Close or minimize the Stream Deck configuration windows, then bring GitHub Copilot to the foreground.
+
+Smart Profiles do not switch while the Stream Deck configuration window is open for editing. Keep your usual profile set as the default for apps without an associated profile.
+
+The bundled profile does not include this association because Stream Deck saves the full executable path, which can differ between computers. For more details, see Elgato's [Smart Profiles guide](https://help.elgato.com/hc/en-us/articles/360053419071-Elgato-Stream-Deck-Smart-Profiles).
 
 ## Release
 
@@ -74,7 +90,7 @@ The optional session bridge (live model, context and MCP controls for a session)
 npm run release
 ```
 
-This builds without the source map, runs the Elgato validator and writes `dist\com.haflidif.copilot.streamDeckPlugin`. Bump `Version` in the manifest and `version` in `package.json` first, then attach the file to a GitHub Release.
+This builds without the source map, generates and bundles the 15-key profile, runs the Elgato validator and writes `dist\com.haflidif.copilot.streamDeckPlugin`. It also writes `dist\copilot-companion.streamDeckProfile` for people who already have the plugin installed. Bump `Version` in the manifest and `version` in `package.json` first, then attach both files to a GitHub Release.
 
 ## Build and use
 
@@ -92,8 +108,8 @@ Use your usual npm registry.
 
 1. Run `npm run extension:install`. This builds the bridge and copies it to `%USERPROFILE%\.copilot\extensions\copilot-stream-deck\`, making it discoverable by Copilot runtimes outside this repository. It does not start a runtime for every conversation in the sidebar. Existing running runtimes need an extension reload to discover it. Run the install command again after changing bridge code.
 2. Install `dist\com.haflidif.copilot.streamDeckPlugin` by opening it in Windows.
-3. In Stream Deck, create a **new dedicated profile**, preserving your existing layout.
-4. Drag **Copilot Companion > Dashboard tile (15-key)** onto all 15 keys. The physical key positions determine their content. Leave custom images unset.
+3. Accept the bundled profile when Stream Deck offers it, then select **Copilot Companion** in the profile dropdown. Your existing layouts are preserved. If you skipped the offer, double-click `dist\copilot-companion.streamDeckProfile` to import it.
+4. All 15 keys are preconfigured. The physical key positions determine their content. Leave custom images unset. No personal connection settings, device IDs or app associations are included.
 5. Select a tile to open its settings. Check the connection status and attached-session ID. Leave the bridge ID blank to select the most recently loaded bridge, or specify the ID for an unambiguous connection.
 
 At least one Copilot runtime must be running with the extension for the deck to connect. A visible conversation is not proof that its runtime is running. If the default bridge closes, automatic selection reconnects to another running bridge; an explicitly pinned default stays pinned. Selecting a session on the deck reads its own model, context, credits and MCP controls when its bridge is running. Sessions without a bridge can still be opened in the app. Their metrics are unavailable unless the session's local history has saved values, which are shown and labelled as saved. They are never copied from another session.
@@ -106,7 +122,7 @@ When a session has no live bridge, the plugin falls back to that session's local
 
 The bottom row is always **Back, Previous, Home/status, Refresh, Next**. The top two rows display up to ten items per page.
 
-The plugin does not replace existing hardware profiles or set up automatic switching. You can associate this profile with the Copilot app in Stream Deck's profile settings. A separate VS Code profile can use editor hotkeys; that is distinct from Copilot session integration.
+The bundled profile is editable and does not replace existing hardware profiles. To enable automatic switching, follow [Switch automatically when Copilot is active](#switch-automatically-when-copilot-is-active). A separate VS Code profile can use editor hotkeys; that is distinct from Copilot session integration. The packaging follows Elgato's [bundled profiles guide](https://docs.elgato.com/streamdeck/sdk/guides/profiles/).
 
 ## Development
 
@@ -144,4 +160,3 @@ The Model key shows the provider's logo (Anthropic Claude, OpenAI, Google Gemini
 ## License
 
 MIT, see [LICENSE](LICENSE). Trademark notes are in [NOTICE.md](NOTICE.md).
-

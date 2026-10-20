@@ -23,6 +23,15 @@
   "Category": "Copilot Companion",
   "CategoryIcon": "imgs/category",
   "PropertyInspectorPath": "ui/settings.html",
+  "Profiles": [
+    {
+      "Name": "profiles/copilot-companion",
+      "DeviceType": 0,
+      "AutoInstall": true,
+      "DontAutoSwitchWhenInstalled": true,
+      "Readonly": false
+    }
+  ],
   "Actions": [
     {
       "UUID": "com.haflidif.copilot.dashboard",

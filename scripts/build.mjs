@@ -2,6 +2,7 @@ import { build } from "esbuild";
 import { copyFile, mkdir, writeFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { deflateSync } from "node:zlib";
+import { buildProfile } from "./build-profile.mjs";
 
 // Release builds leave the source map out so the packed plugin stays small.
 const release = process.argv.includes("--release");
@@ -55,4 +56,5 @@ for (const [name, size, mono] of [["plugin", 256, false], ["category", 28, true]
   await writeFile(resolve(images, `${name}.png`), png(size, mono));
   await writeFile(resolve(images, `${name}@2x.png`), png(size * 2, mono));
 }
+await buildProfile();
 console.log("Built Stream Deck plugin and Copilot extension bridge.");

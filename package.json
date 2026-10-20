@@ -33,6 +33,7 @@
     "@resvg/resvg-js": "^2.6.2",
     "@types/node": "^22.0.0",
     "@types/ws": "^8.18.0",
+    "@zip.js/zip.js": "2.23.0",
     "esbuild": "0.28.2",
     "gifenc": "^1.0.3",
     "tsx": "^4.20.0",
