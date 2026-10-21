@@ -67,7 +67,12 @@ hold(1.5);
 await tap(home);
 hold(0.5);
 await tap("This session");
+hold(2);
+// Subagents working for this session, then one agent's details.
+await tap("Agents");
 hold(2.5);
+await tap("API tester");
+hold(2);
 await tap(home);
 hold(1);
 // Everything finishes: confetti, and the mascot goes back to sleep.

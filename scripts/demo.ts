@@ -24,10 +24,16 @@ export function demo(): Snapshot {
     ],
     details: { id: "s1", name: "Checkout redesign", model: "claude-sonnet-5", reasoning: "high", contextPercent: 62, contextLimit: 200000, aiCredits: 4.5, creditsStatus: "complete" },
     mcp: [{ name: "github", enabled: true, status: "connected" }, { name: "playwright", enabled: false, status: "disabled" }],
+    agents: [
+      { id: "a1", name: "Frontend scout", agentType: "explore", status: "running", startedAt: "2026-10-21T07:00:00Z", activeTimeMs: 128000, model: "claude-haiku-5.5" },
+      { id: "a2", name: "API tester", agentType: "task", status: "running", startedAt: "2026-10-21T07:00:10Z", activeTimeMs: 84000, model: "gpt-5.6-luna" },
+      { id: "a3", name: "Docs writer", agentType: "general-purpose", status: "idle", startedAt: "2026-10-21T07:00:20Z", activeTimeMs: 95000, model: "claude-sonnet-5" },
+      { id: "a4", name: "Security review", agentType: "security-review", status: "completed", startedAt: "2026-10-21T07:00:30Z", completedAt: "2026-10-21T07:03:00Z", activeTimeMs: 150000, model: "gpt-5.6-sol" },
+    ],
     capabilities: {
       projects: { available: true }, sessions: { available: true }, openSession: { available: true },
       newChat: { available: true }, details: { available: true }, mcp: { available: true },
-      voice: { available: true }, appPins: { available: true }, model: { available: true },
+      voice: { available: true }, appPins: { available: true }, model: { available: true }, agents: { available: true },
     },
     errors: [],
   };
