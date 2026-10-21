@@ -3,11 +3,20 @@ import assert from "node:assert/strict";
 import { mkdtemp, writeFile, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { decodeToolResult, validateSessionLink } from "../src/bridge/app-tools.js";
+import { decodeToolResult, openSessionLink, validateSessionLink } from "../src/bridge/app-tools.js";
+import { bridgeDirectory } from "../src/shared/paths.js";
 import { AppProvider, nestedSessions, normalizeSessions } from "../src/bridge/provider.js";
 import { startBridge } from "../src/bridge/server.js";
 import { parseCommand, parseDescriptor, parseSnapshot, type Command } from "../src/shared/protocol.js";
 import { joinedSession, snapshot } from "./fixtures.js";
+
+test("bridge descriptors live in the per-user app data folder on each platform", async () => {
+  assert.equal(bridgeDirectory("win32", { LOCALAPPDATA: "C:\\Users\\me\\AppData\\Local" }, "C:\\Users\\me"),
+    join("C:\\Users\\me\\AppData\\Local", "CopilotStreamDeck", "bridges"));
+  assert.equal(bridgeDirectory("darwin", {}, "/Users/me"), join("/Users/me", "Library", "Application Support", "CopilotStreamDeck", "bridges"));
+  assert.equal(bridgeDirectory("linux", {}, "/home/me"), join("/home/me", ".local", "share", "CopilotStreamDeck", "bridges"));
+  await assert.rejects(openSessionLink("ghapp://sessions/attached", "linux"), /Windows or macOS/);
+});
 
 test("native tool parser handles JSON, prefixed JSON, and host spill files", async () => {
   assert.deepEqual(await decodeToolResult({ resultType: "success", textResultForLlm: 'Found 0 projects:\n[]' }), []);

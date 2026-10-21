@@ -11,9 +11,15 @@ export function validateSessionLink(value: unknown, id: string): string {
   return value;
 }
 
-export async function openSessionLink(url: string): Promise<void> {
-  if (process.platform !== "win32") throw new Error("Opening Copilot session links requires Windows");
-  await promisify(execFile)("rundll32.exe", ["url.dll,FileProtocolHandler", url], { timeout: 10000, windowsHide: true });
+export async function openSessionLink(url: string, platform: NodeJS.Platform = process.platform): Promise<void> {
+  const run = promisify(execFile);
+  if (platform === "win32") {
+    await run("rundll32.exe", ["url.dll,FileProtocolHandler", url], { timeout: 10000, windowsHide: true });
+  } else if (platform === "darwin") {
+    await run("/usr/bin/open", [url], { timeout: 10000 });
+  } else {
+    throw new Error("Opening Copilot session links requires Windows or macOS");
+  }
 }
 
 // Native tool responses may be spilled by the host's large-output processor.
