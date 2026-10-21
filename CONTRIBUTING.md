@@ -35,7 +35,7 @@ npm ci
 npm run validate
 ```
 
-`npm run validate` runs the type check and the test suite. The [Development](README.md#development) section in the README covers previews, linking the plugin to your checkout and installing the Copilot extension.
+`npm run validate` runs the type check and the test suite. The [development guide](docs/development.md) covers previews, linking the plugin to your checkout, installing the Copilot extension and releases.
 
 You don't need a physical Stream Deck for most work. `npm run preview` renders the real tile renderer with synthetic data to `dist\preview.svg`, and the tests cover the bridge, the protocol and the dashboard logic.
 
