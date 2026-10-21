@@ -1,4 +1,4 @@
-import type { Activity, Command, SessionDetails, Snapshot } from "../shared/protocol.js";
+import type { Activity, AgentStatus, Command, SessionAgent, SessionDetails, Snapshot } from "../shared/protocol.js";
 import type { AppMcp, CompanionRequest, VoiceState } from "./companion.js";
 import { icons } from "./icons.js";
 
@@ -31,6 +31,10 @@ export interface Tile {
   nested?: boolean;
   /** Busy session count; draws an animated Copilot that dozes off when nothing is running. */
   busy?: number;
+  /** Small count badge in the top right corner of an icon tile. */
+  count?: number;
+  /** Icon slowly fades in and out to show background work. */
+  breathe?: boolean;
   /** Copilot reactions: startled when a session needs you, sweating when context is nearly full. */
   mood?: { alert?: boolean; sweat?: boolean };
   action?: Action;
@@ -40,6 +44,8 @@ type View =
   | { type: "projects"; page: number }
   | { type: "sessions"; page: number; projectId?: string; favorites?: boolean; chats?: boolean; attention?: boolean; finished?: boolean; working?: boolean; parentId?: string }
   | { type: "session"; page: number; id: string; follow?: boolean }
+  | { type: "agents"; page: number; sessionId: string; follow?: boolean }
+  | { type: "agent"; page: number; sessionId: string; agentId: string; follow?: boolean }
   | { type: "mcp"; page: number; sessionId: string }
   | { type: "models"; page: number; sessionId: string }
   | { type: "reasoning"; page: number; sessionId: string; modelId?: string }
@@ -49,6 +55,7 @@ type View =
 const viewTitles: Record<View["type"], string> = {
   home: "Home", projects: "Projects", sessions: "Sessions", session: "Session", mcp: "MCP",
   models: "Models", reasoning: "Mode", confirm: "Confirm", question: "Question",
+  agents: "Agents", agent: "Agent",
 };
 type Action =
   | { type: "view"; view: View }
@@ -61,6 +68,22 @@ const statusLabels: Partial<Record<Activity, string>> = {
   working: "Working", attention: "Needs you", ready: "Ready to merge", idle: "Idle", error: "Stopped",
 };
 const statusLabel = (activity?: Activity): string | undefined => activity && statusLabels[activity];
+const agentLabels: Record<AgentStatus, string> = {
+  running: "Working", idle: "Waiting", completed: "Completed", failed: "Failed", cancelled: "Cancelled",
+};
+const agentActivity: Record<AgentStatus, Activity> = {
+  running: "working", idle: "idle", completed: "ready", failed: "error", cancelled: "unknown",
+};
+
+function agentStatusTile(agent: SessionAgent): Tile {
+  return { label: agentLabels[agent.status], icon: agent.status === "completed" ? "check" : agent.status === "failed" ? "error" : "agent",
+    activity: agentActivity[agent.status], ...(agent.status === "running" ? {} : { value: agentLabels[agent.status] }) };
+}
+
+function duration(ms: number): string {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  return seconds < 60 ? `${seconds}s` : seconds < 3600 ? `${Math.floor(seconds / 60)}m ${seconds % 60}s` : `${Math.floor(seconds / 3600)}h ${Math.floor(seconds / 60) % 60}m`;
+}
 
 export class Dashboard {
   view: View = { type: "home", page: 0 };
@@ -113,10 +136,14 @@ export class Dashboard {
 
   get targetSessionId(): string | undefined {
     return this.view.type === "session" ? this.sessionViewId(this.view)
+      : this.view.type === "agents" || this.view.type === "agent" ? this.sessionViewId({ id: this.view.sessionId, follow: this.view.follow })
       : this.view.type === "mcp" || this.view.type === "confirm" || this.view.type === "models" || this.view.type === "reasoning" ? this.view.sessionId : undefined;
   }
 
   get detailsMessage(): string | undefined {
+    if (this.view.type === "agents" || this.view.type === "agent") {
+      return this.agentMessage(this.targetSessionId!) ?? "Read-only runtime subagents for this session. Waiting means an agent can accept another assignment, not that its task is completed.";
+    }
     if (this.view.type !== "session") return;
     const id = this.sessionViewId(this.view);
     if (this.snapshot && id !== this.snapshot.bridgeSessionId && this.voice?.active?.id === id) {
@@ -130,6 +157,13 @@ export class Dashboard {
       return "No live bridge for this session. Copilot can stop an idle session's runtime and its extensions while keeping the conversation visible. Switching tabs does not guarantee a runtime starts. Session metrics and MCP controls require that runtime; app-wide activity status is still available. This connector cannot start it automatically.";
     }
     return this.snapshot?.capabilities.details.reason;
+  }
+
+  private agentMessage(sessionId: string): string | undefined {
+    if (this.loadingDetails) return "Loading agents";
+    if (!this.snapshot || this.snapshot.bridgeSessionId !== sessionId) return "No agent bridge";
+    if (!this.snapshot.capabilities.agents?.available) return this.snapshot.capabilities.agents?.reason ?? "Update the bridge";
+    if (!this.snapshot.agents) return "Agents unavailable";
   }
 
   /** Dictation always goes to the session that is active in the app window. */
@@ -307,7 +341,45 @@ export class Dashboard {
           : session?.activity === "attention" && data.capabilities.openSession.available && !requested
             ? { label: "Needs you", icon: "session", activity: "attention", action: { type: "command", command: { type: "openSession", id } } }
             : { label: this.loadingDetails && !appLive ? "Loading details" : statusLabel(session?.activity) ?? (own ? "Session status" : appLive ? "Live from app" : saved ? "Saved values" : "Bridge not running"), icon: "session", activity: session?.activity ?? "unknown" },
+        (() => {
+          const off = this.agentMessage(id);
+          const agents = off ? [] : data.agents ?? [];
+          return { ...viewTile("Agents", "agent", { type: "agents", page: 0, sessionId: id, follow: this.view.follow }),
+            ...(off ? { value: "Unavailable", tone: "muted" as Tone } : { count: agents.length, breathe: agents.some((row) => row.status === "running") }) };
+        })(),
       ];
+    } else if (this.view.type === "agents" || this.view.type === "agent") {
+      const view = this.view;
+      const sessionId = this.targetSessionId!;
+      const message = this.agentMessage(sessionId);
+      const agents = message ? [] : data.agents ?? [];
+      if (message) {
+        items = [{ label: message, icon: "error", disabled: true }];
+      } else if (view.type === "agents") {
+        const rank: Record<AgentStatus, number> = { running: 0, failed: 1, idle: 2, completed: 3, cancelled: 4 };
+        items = [...agents].sort((a, b) => rank[a.status] - rank[b.status] || Date.parse(a.startedAt) - Date.parse(b.startedAt) || a.id.localeCompare(b.id))
+          .map((agent) => ({
+            ...agentStatusTile(agent), label: agent.name,
+            action: { type: "view", view: { type: "agent", page: 0, sessionId, agentId: agent.id, follow: view.follow } },
+          }));
+        if (!items.length) items = [{ label: "No subagents", icon: "copilot", disabled: true }];
+      } else {
+        const agent = agents.find((row) => row.id === view.agentId);
+        if (!agent) items = [{ label: "Agent no longer listed", icon: "copilot", disabled: true }];
+        else {
+          const activeMs = agent.activeTimeMs === undefined && !agent.activeStartedAt ? undefined
+            : (agent.activeTimeMs ?? 0) + (agent.status === "running" && agent.activeStartedAt ? Math.max(0, this.now() - Date.parse(agent.activeStartedAt)) : 0);
+          items = [
+            { label: agent.name, icon: "agent" },
+            agentStatusTile(agent),
+            { label: "Agent type", value: agent.agentType, tone: "copilot" },
+            { ...modelTile(agent.model), value: agent.model ?? "Unavailable", ...(agent.model ? {} : { tone: "muted" as Tone }) },
+            { label: "Active time", value: activeMs === undefined ? "Unavailable" : duration(activeMs), tone: "blue" },
+            { label: "Started", value: new Date(agent.startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), tone: "muted" },
+            ...(agent.completedAt ? [{ label: "Ended", value: new Date(agent.completedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), tone: "muted" as Tone }] : []),
+          ];
+        }
+      }
     } else if (this.view.type === "models" || this.view.type === "reasoning") {
       const sessionId = this.view.sessionId;
       const current = data.bridgeSessionId === sessionId ? data.details : undefined;
@@ -385,9 +457,13 @@ export class Dashboard {
         { label: this.view.label, icon: this.view.command.type === "setMcp" ? "grid" : this.view.command.type === "setModel" ? "copilot" : "plus" },
       ];
     }
-    const maxPage = Math.max(0, Math.ceil(items.length / 10) - 1);
+    // Up to two extra items use the Previous and Next keys, so a view only pages once it outgrows them.
+    const spare = [11, 14];
+    const fits = items.length <= 10 + spare.length;
+    const maxPage = fits ? 0 : Math.ceil(items.length / 10) - 1;
     this.view.page = Math.min(this.view.page, maxPage);
-    items.slice(this.view.page * 10, this.view.page * 10 + 10).forEach((tile, index) => { tiles[index] = tile; });
+    if (fits) items.forEach((tile, index) => { tiles[index < 10 ? index : spare[index - 10]!] = tile; });
+    else items.slice(this.view.page * 10, this.view.page * 10 + 10).forEach((tile, index) => { tiles[index] = tile; });
     if (!items.length) tiles[0] = { label: "No items", icon: "chat", disabled: true };
     tiles[10] = { label: "Back", icon: "back", disabled: !this.history.length, action: { type: "back" } };
     if (maxPage > 0) tiles[11] = { label: "Previous", icon: "left", disabled: this.view.page === 0, action: { type: "previous" } };

@@ -126,7 +126,7 @@ export function withNavFeed(snapshot: Snapshot | undefined, feed: NavFeed, activ
   return {
     version: 1, capturedAt: new Date().toISOString(), bridgeSessionId: activeSessionId ?? "",
     projects: feed.projects, sessions: feed.sessions, mcp: [], errors: [],
-    capabilities: { projects: on, sessions: on, openSession: on, newChat: off, details: off, mcp: off, voice: on, appPins: on, model: off },
+    capabilities: { projects: on, sessions: on, openSession: on, newChat: off, details: off, mcp: off, voice: on, appPins: on, model: off, agents: off },
   };
 }
 

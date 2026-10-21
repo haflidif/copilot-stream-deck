@@ -48,6 +48,7 @@ const iconColors: Partial<Record<Icon, string>> = {
 /** Copilot style gradients, top left to bottom right. */
 const iconGradients: Partial<Record<Icon, string[]>> = {
   copilot: ["#c297ff", "#8957e5", "#58a6ff"],
+  agent: ["#c297ff", "#8957e5", "#58a6ff"],
   sparkle: ["#ffd33d", "#f778ba", "#a371f7"],
 };
 
@@ -185,8 +186,16 @@ export function renderTile(tile: Tile, frame = 0, reducedMotion = false, slot?: 
     const scale = tall ? 2.5 : 2.9;
     const offset = 72 - 12 * scale;
     const branded = tile.icon && !tile.activity && !tile.recording && !accent ? iconFill(tile.icon) : { fill: color, defs: "" };
-    center = `${branded.defs}<g transform="translate(${offset} ${tall ? 14 : 16}) scale(${scale})" fill="${branded.fill}">${tile.icon ? paths[tile.icon] : ""}</g>`;
+    // A breathing icon shows work is happening without hiding the icon behind the working dots.
+    const breath = tile.breathe && !reducedMotion && !tile.disabled
+      ? 0.55 + 0.45 * (0.5 + 0.5 * Math.cos((((frame % 24) + 24) % 24) / 24 * 2 * Math.PI)) : 1;
+    center = `${branded.defs}<g transform="translate(${offset} ${tall ? 14 : 16}) scale(${scale})" fill="${branded.fill}" opacity="${breath.toFixed(2)}">${tile.icon ? paths[tile.icon] : ""}</g>`;
   }
+  const counter = tile.count !== undefined && !tile.activity
+    ? (() => {
+      const text = tile.count > 9 ? "9+" : String(tile.count);
+      return `<circle cx="122" cy="22" r="15" fill="${tile.breathe ? "#b392f0" : "#e6edf3"}"/><text x="122" y="30" text-anchor="middle" fill="#0d1117" font-size="20" font-weight="800">${text}</text>`;
+    })() : "";
   const badge = tile.activity && tile.activity !== "working"
     ? tile.activity === "attention" ? `<circle cx="122" cy="22" r="14" fill="${color}"/><text x="122" y="31" text-anchor="middle" fill="#0d1117" font-size="24" font-weight="800">?</text>`
       : tile.activity === "error" ? `<circle cx="122" cy="22" r="14" fill="${color}"/><path d="m116 16 12 12m0-12-12 12" stroke="#0d1117" stroke-width="3.5" stroke-linecap="round"/>`
@@ -213,7 +222,7 @@ export function renderTile(tile: Tile, frame = 0, reducedMotion = false, slot?: 
 <defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#1c2230"/><stop offset="1" stop-color="#0d1117"/></linearGradient><clipPath id="tile"><rect width="144" height="144" rx="13"/></clipPath></defs>
 <rect width="144" height="144" rx="13" fill="url(#bg)"/>${strip}${pulse}
 <g opacity="${disabled}" font-family="Segoe UI, Arial, sans-serif">
-${center}${badge}${group}${label}</g>${confetti}</svg>`;
+${center}${badge}${counter}${group}${label}</g>${confetti}</svg>`;
 }
 
 const confettiColors = ["#c297ff", "#58a6ff", "#5be3a5", "#f2cc60", "#ff7b72", "#e6edf3"];
