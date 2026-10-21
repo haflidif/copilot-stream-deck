@@ -18,6 +18,8 @@ A tour of what the deck can do. The pictures use made-up demo data and are rende
 
 ## Status at a glance
 
+![Hold to talk, Listening, and the Working, Needs you and Finished keys](images/voice-and-status.png)
+
 - Animated blue-dot session tiles, readable labels, attention and error indicators, and reduced motion.
 - Sessions waiting for you get a pulsing amber border, and a **Needs you** home tile counts them and opens the list. If the only waiting session is open in the app with a question, it goes straight to the answers. In a session's view, the **Needs you** tile opens that session in the app, and then turns into **Answer question**.
 - When a session finishes working, its tile flashes green and a **Finished** home tile takes you to it. The flash stays until you open the session on the deck, or for 5 minutes.
