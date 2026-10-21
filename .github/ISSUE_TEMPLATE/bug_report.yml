@@ -1,0 +1,110 @@
+name: Bug report
+description: Something on the deck doesn't work as described in the README.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. Please check the [existing issues](https://github.com/haflidif/copilot-stream-deck/issues?q=is%3Aissue) first.
+
+        Security problems should not be reported here. See [SECURITY.md](https://github.com/haflidif/copilot-stream-deck/blob/main/SECURITY.md).
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the problem and which key or page it affects.
+      placeholder: The Model key shows "No bridge" even though the session is running.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a session in the Copilot app
+        2. Select it on the deck
+        3. Press the Model key
+    validations:
+      required: true
+
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      description: Shown in the Stream Deck app under Plugins, or the release you installed.
+      placeholder: 0.2.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: os-version
+    attributes:
+      label: OS version
+      placeholder: Windows 11 24H2, macOS 15.1
+    validations:
+      required: false
+
+  - type: dropdown
+    id: device
+    attributes:
+      label: Stream Deck model
+      options:
+        - Stream Deck (15 keys) or MK.2
+        - Stream Deck XL
+        - Stream Deck Mini or Neo
+        - Stream Deck +
+        - Virtual Stream Deck
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: app-versions
+    attributes:
+      label: Stream Deck app and Copilot app versions
+      placeholder: Stream Deck 6.8.1, Copilot 1.0.100
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Plugin logs are in the plugin's `logs` folder:
+        - Windows: `%APPDATA%\Elgato\StreamDeck\Plugins\com.haflidif.copilot.sdPlugin\logs`
+        - macOS: `~/Library/Application Support/com.elgato.StreamDeck/Plugins/com.haflidif.copilot.sdPlugin/logs`
+
+        Remove tokens, session IDs and anything else private before pasting.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Screenshots or photos of the deck are very helpful.
+    validations:
+      required: false
