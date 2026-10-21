@@ -35,6 +35,8 @@ export interface Tile {
   count?: number;
   /** Icon slowly fades in and out to show background work. */
   breathe?: boolean;
+  /** Full-colour logo drawn in place of the icon. */
+  logo?: "squad";
   /** Copilot reactions: startled when a session needs you, sweating when context is nearly full. */
   mood?: { alert?: boolean; sweat?: boolean };
   action?: Action;
@@ -345,6 +347,7 @@ export class Dashboard {
           const off = this.agentMessage(id);
           const agents = off ? [] : data.agents ?? [];
           return { ...viewTile("Agents", "agent", { type: "agents", page: 0, sessionId: id, follow: this.view.follow }),
+            ...(own && data.squad ? { logo: "squad" as const } : {}),
             ...(off ? { value: "Unavailable", tone: "muted" as Tone } : { count: agents.length, breathe: agents.some((row) => row.status === "running") }) };
         })(),
       ];
@@ -359,7 +362,7 @@ export class Dashboard {
         const rank: Record<AgentStatus, number> = { running: 0, failed: 1, idle: 2, completed: 3, cancelled: 4 };
         items = [...agents].sort((a, b) => rank[a.status] - rank[b.status] || Date.parse(a.startedAt) - Date.parse(b.startedAt) || a.id.localeCompare(b.id))
           .map((agent) => ({
-            ...agentStatusTile(agent), label: agent.name,
+            ...agentStatusTile(agent), label: agent.member ?? agent.name,
             action: { type: "view", view: { type: "agent", page: 0, sessionId, agentId: agent.id, follow: view.follow } },
           }));
         if (!items.length) items = [{ label: "No subagents", icon: "copilot", disabled: true }];
@@ -370,8 +373,9 @@ export class Dashboard {
           const activeMs = agent.activeTimeMs === undefined && !agent.activeStartedAt ? undefined
             : (agent.activeTimeMs ?? 0) + (agent.status === "running" && agent.activeStartedAt ? Math.max(0, this.now() - Date.parse(agent.activeStartedAt)) : 0);
           items = [
-            { label: agent.name, icon: "agent" },
+            { label: agent.member ?? agent.name, icon: "agent", ...(agent.member ? { logo: "squad" as const } : {}) },
             agentStatusTile(agent),
+            ...(agent.role ? [{ label: "Squad role", value: agent.role, tone: "copilot" as Tone }] : []),
             { label: "Agent type", value: agent.agentType, tone: "copilot" },
             { ...modelTile(agent.model), value: agent.model ?? "Unavailable", ...(agent.model ? {} : { tone: "muted" as Tone }) },
             { label: "Active time", value: activeMs === undefined ? "Unavailable" : duration(activeMs), tone: "blue" },

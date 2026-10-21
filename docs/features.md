@@ -70,11 +70,17 @@ The Agents page lists the session's runtime subagents, with animated **Working**
 
 This needs the session bridge and a Copilot runtime that exposes the experimental task-list API. See [How it works](how-it-works.md#subagents) for the details.
 
+### Squad teams
+
+If the session's folder has a [Squad](https://github.com/bradygaster/squad) team (`.squad/team.md`, or `.ai-team/team.md` from older versions), the Agents key shows the Squad logo. Agents whose task name starts with a team member's name, like `neo` or `neo-impl`, are shown as that member. Their page adds the Squad logo and a **Squad role** key with the role from the roster.
+
+![A Squad session: the Agents key with the Squad logo, the Agents list with team member names, and Neo's page with the Squad role](images/squad.png)
+
 ## Not connected yet
 
 - Pinning or unpinning from the deck.
 - Model selection for sessions without a running bridge.
 - MCP control for sessions that are neither active in the app nor running a bridge.
-- Squad-specific roster roles and standalone Squad CLI connections.
+- Standalone Squad CLI connections.
 
 Unavailable features are clearly marked on the deck. Idle does not mean completed. The [integration findings](integration.md) have the complete feature matrix and remaining work.

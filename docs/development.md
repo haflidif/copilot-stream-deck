@@ -53,7 +53,7 @@ You don't need a Stream Deck to see the tiles. These commands use the real rende
 
 Tile icons come from [GitHub Primer Octicons](https://github.com/primer/octicons). `npm run icons` regenerates `src/plugin/icons.ts` with only the icons the deck uses. Icons and values use GitHub Primer colours, and the Copilot icon uses a purple to blue gradient. Status colours (attention, error, finished) and project colours always take priority.
 
-The provider logos on the Model key are kept in `src/plugin/brands.ts`. Credits and trademarks are listed in [NOTICE.md](../NOTICE.md).
+The provider logos on the Model key are kept in `src/plugin/brands.ts`, and the Squad logo on the Agents key in `src/plugin/squad-logo.ts`. Credits and trademarks are listed in [NOTICE.md](../NOTICE.md).
 
 ## Release
 
