@@ -4,7 +4,7 @@
   "Name": "Copilot Companion",
   "Author": "haflidif",
   "Description": "Unofficial local companion for the GitHub Copilot app. Browse projects and sessions with animated status tiles.",
-  "Version": "0.3.0.1",
+  "Version": "0.3.0.2",
   "SDKVersion": 2,
   "Software": {
     "MinimumVersion": "6.6"
