@@ -63,6 +63,9 @@ export interface SessionAgent {
   activeTimeMs?: number;
   activeStartedAt?: string;
   model?: string;
+  /** Squad member this task runs as, matched against the project's .squad/team.md. */
+  member?: string;
+  role?: string;
 }
 
 /** Whitelist display metadata only. Task prompts, responses and raw errors stay in the runtime. */
@@ -87,9 +90,14 @@ export function parseAgents(value: unknown): SessionAgent[] {
       status: row.status as AgentStatus, startedAt: time("startedAt", true)!,
       completedAt: time("completedAt"), activeStartedAt: time("activeStartedAt"), activeTimeMs,
       model: typeof row.model === "string" && row.model.trim() ? row.model : undefined,
+      ...(short(row.member) ? { member: short(row.member) } : {}),
+      ...(short(row.role) ? { role: short(row.role) } : {}),
     };
   });
 }
+
+const short = (value: unknown): string | undefined =>
+  typeof value === "string" && value.trim() && value.length <= 40 ? value.trim() : undefined;
 
 export interface Snapshot {
   version: 1;

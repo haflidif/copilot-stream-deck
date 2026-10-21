@@ -1,4 +1,4 @@
-import { access } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 import { decodeToolResult, deadline, openSessionLink, validateSessionLink, type JoinedSession } from "./app-tools.js";
 import { finite, parseAgents, record, text, type AppSession, type Command, type McpServer, type ModelOption, type Project, type Snapshot } from "../shared/protocol.js";
@@ -46,16 +46,44 @@ export function nestedSessions(catalog: unknown): Map<string, AppSession & { par
   return children;
 }
 
-/** Squad keeps its team in .squad/team.md; projects set up with older versions use .ai-team/team.md. */
-export async function hasSquadTeam(folder: unknown): Promise<boolean> {
-  if (typeof folder !== "string" || !isAbsolute(folder)) return false;
+export interface SquadMember { name: string; role: string }
+
+/** Squad keeps its team in .squad/team.md; projects set up with older versions use .ai-team/team.md. Returns the roster, or undefined without a team. */
+export async function readSquadTeam(folder: unknown): Promise<SquadMember[] | undefined> {
+  if (typeof folder !== "string" || !isAbsolute(folder)) return;
   for (const dir of [".squad", ".ai-team"]) {
+    let text: string;
     try {
-      await access(join(folder, dir, "team.md"));
-      return true;
-    } catch { /* not this layout */ }
+      text = await readFile(join(folder, dir, "team.md"), "utf8");
+    } catch { continue; }
+    return parseSquadRoster(text);
   }
-  return false;
+}
+
+/** Reads every "| Name | Role | ..." table in team.md. Only names and roles leave this function. */
+export function parseSquadRoster(markdown: string): SquadMember[] {
+  const members: SquadMember[] = [];
+  let inTable = false;
+  for (const line of markdown.split(/\r?\n/)) {
+    if (!line.trim().startsWith("|")) { inTable = false; continue; }
+    const cells = line.trim().replace(/^\||\|$/g, "").split("|").map((cell) => cell.replace(/[*`]/g, "").trim());
+    if (cells[0]?.toLowerCase() === "name" && cells[1]?.toLowerCase() === "role") { inTable = true; continue; }
+    if (!inTable || cells.every((cell) => /^:?-*:?$/.test(cell))) continue;
+    const [name, role] = cells;
+    if (name && role && !name.startsWith("@") && name.length <= 40 && !members.some((row) => row.name.toLowerCase() === name.toLowerCase())) {
+      members.push({ name, role: role.slice(0, 40) });
+    }
+  }
+  return members;
+}
+
+/** Squad names each task after the member, like "neo" or "neo-impl", so match the whole name or a "neo-" style prefix. */
+export function squadMember(agentName: string, roster: SquadMember[]): SquadMember | undefined {
+  const key = agentName.trim().toLowerCase().replace(/^[^\p{L}\p{N}]+/u, "");
+  return roster.filter((member) => {
+    const name = member.name.toLowerCase();
+    return key === name || (key.startsWith(name) && /^[-_ :]/.test(key.slice(name.length)));
+  }).sort((a, b) => b.name.length - a.name.length)[0];
 }
 
 export function normalizeProjects(value: unknown): Project[] {
@@ -140,6 +168,7 @@ export class AppProvider {
     snapshot.capabilities.newChat = {
       available: this.names.has("create_session"), reason: this.names.has("create_session") ? undefined : "Host session creation tool unavailable",
     };
+    let roster: SquadMember[] | undefined;
     await Promise.all([
       ...(this.session.rpc.tasks?.list ? [attempt("agents", async () => {
         const result = record(await deadline(this.session.rpc.tasks!.list()));
@@ -184,7 +213,8 @@ export class AppProvider {
           deadline(this.session.rpc.metadata.snapshot()).then(record),
           deadline(this.session.rpc.metadata.contextInfo({ promptTokenLimit: 0, outputTokenLimit: 0 })).then(record),
         ]);
-        if (await hasSquadTeam(metadata.workingDirectory)) snapshot.squad = true;
+        roster = await readSquadTeam(metadata.workingDirectory);
+        if (roster) snapshot.squad = true;
         const info = context.contextInfo ? record(context.contextInfo) : {};
         const limit = finite(info.limit);
         const tokens = finite(info.totalTokens);
@@ -217,6 +247,12 @@ export class AppProvider {
         });
       }),
     ]);
+    if (roster?.length && snapshot.agents) {
+      snapshot.agents = snapshot.agents.map((agent) => {
+        const member = squadMember(agent.name, roster!);
+        return member ? { ...agent, member: member.name, role: member.role } : agent;
+      });
+    }
     const current = snapshot.sessions.find((row) => row.id === this.session.sessionId);
     if (current && snapshot.details) snapshot.details.name = current.name;
     snapshot.capturedAt = new Date().toISOString();

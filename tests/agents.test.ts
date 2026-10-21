@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { AppProvider, hasSquadTeam } from "../src/bridge/provider.js";
+import { AppProvider, parseSquadRoster, readSquadTeam, squadMember } from "../src/bridge/provider.js";
 import { Dashboard } from "../src/plugin/dashboard.js";
 import { renderTile } from "../src/plugin/render.js";
 import { parseAgents, parseSnapshot, type SessionAgent } from "../src/shared/protocol.js";
@@ -199,21 +199,70 @@ test("agent detail handles removed tasks and freezes active time for idle agents
   assert.equal(board.tiles()[0]?.label, "Agents unavailable");
 });
 
-test("sessions in a Squad project show the Squad logo on the Agents key", async () => {
+const team = `# Squad Team
+
+## Coordinator
+
+| Name | Role | Notes |
+|------|------|-------|
+| Squad | Coordinator | Routes work. |
+
+## Members
+
+| Name | Role | Charter | Status |
+|------|------|---------|--------|
+| Neo | Lead | \`.squad/agents/neo/charter.md\` | ✅ Active |
+| **Trinity** | Frontend Dev | \`.squad/agents/trinity/charter.md\` | ✅ Active |
+| Rai | RAI Reviewer | \`.squad/agents/Rai/charter.md\` | 🛡️ RAI |
+| Raiden | Platform Engineer | \`.squad/agents/raiden/charter.md\` | ✅ Active |
+
+## Coding Agent
+
+| Name | Role | Charter | Status |
+|------|------|---------|--------|
+| @copilot | Coding Agent | — | 🤖 Coding Agent |
+
+| Area | Owner |
+|------|-------|
+| API | Neo |
+`;
+
+test("Squad rosters are read from team.md and matched to task names", () => {
+  const roster = parseSquadRoster(team);
+  assert.deepEqual(roster.map((row) => `${row.name}:${row.role}`),
+    ["Squad:Coordinator", "Neo:Lead", "Trinity:Frontend Dev", "Rai:RAI Reviewer", "Raiden:Platform Engineer"]);
+  assert.equal(squadMember("neo", roster)?.name, "Neo");
+  assert.equal(squadMember("neo-impl", roster)?.name, "Neo");
+  assert.equal(squadMember("trinity_review", roster)?.role, "Frontend Dev");
+  assert.equal(squadMember("raiden-docs", roster)?.name, "Raiden");
+  assert.equal(squadMember("rai", roster)?.name, "Rai");
+  assert.equal(squadMember("🔧 Neo: build", roster)?.name, "Neo");
+  assert.equal(squadMember("neon-scout", roster), undefined);
+  assert.equal(squadMember("Frontend scout", roster), undefined);
+});
+
+test("sessions in a Squad project show the Squad logo and member roles", async () => {
   const folder = await mkdtemp(join(tmpdir(), "squad-"));
   try {
-    assert.equal(await hasSquadTeam(folder), false);
-    assert.equal(await hasSquadTeam("relative/folder"), false);
+    assert.equal(await readSquadTeam(folder), undefined);
+    assert.equal(await readSquadTeam("relative/folder"), undefined);
     await mkdir(join(folder, ".squad"));
-    await writeFile(join(folder, ".squad", "team.md"), "# Team");
-    assert.equal(await hasSquadTeam(folder), true);
+    await writeFile(join(folder, ".squad", "team.md"), team);
+    assert.equal((await readSquadTeam(folder))?.length, 5);
     const session = joinedSession();
     session.rpc.metadata.snapshot = async () => ({ summary: "Example", workingDirectory: folder });
+    session.rpc.tasks = { list: async () => ({ tasks: [
+      { ...agent("a1"), displayName: "neo-impl", type: "agent" },
+      { ...agent("a2"), displayName: "Frontend scout", type: "agent" },
+    ] }) };
     const provider = new AppProvider(session);
     try {
       const data = await provider.snapshot();
       assert.equal(data.squad, true);
-      assert.equal(parseSnapshot(JSON.parse(JSON.stringify(data))).squad, true);
+      const parsed = parseSnapshot(JSON.parse(JSON.stringify(data)));
+      assert.equal(parsed.squad, true);
+      assert.deepEqual(parsed.agents?.map((row) => [row.name, row.member, row.role]),
+        [["neo-impl", "Neo", "Lead"], ["Frontend scout", undefined, undefined]]);
     } finally { provider.dispose(); }
   } finally { await rm(folder, { recursive: true, force: true }); }
 
@@ -221,8 +270,16 @@ test("sessions in a Squad project show the Squad logo on the Agents key", async 
   await board.press(6);
   assert.equal(board.tiles()[11]?.logo, undefined);
   assert.doesNotMatch(renderTile(board.tiles()[11]!), /<image/);
-  board.snapshot = { ...board.snapshot!, squad: true };
+  board.snapshot = { ...board.snapshot!, squad: true, agents: [{ ...agent(), name: "neo-impl", member: "Neo", role: "Lead" }] };
   assert.equal(board.tiles()[11]?.logo, "squad");
   assert.equal(board.tiles()[11]?.count, 1);
   assert.match(renderTile(board.tiles()[11]!), /<image[^>]+href="data:image\/png;base64,/);
+  await board.press(11);
+  assert.equal(board.tiles()[0]?.label, "Neo");
+  await board.press(0);
+  assert.equal(board.tiles()[0]?.label, "Neo");
+  assert.equal(board.tiles()[0]?.logo, "squad");
+  assert.deepEqual([board.tiles()[2]?.label, board.tiles()[2]?.value], ["Squad role", "Lead"]);
+  assert.equal(board.tiles()[3]?.label, "Agent type");
+  assert.equal(parseAgents([{ ...agent(), member: "x".repeat(41), role: 7 }])[0]?.member, undefined);
 });
