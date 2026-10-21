@@ -84,6 +84,14 @@ Smart Profiles do not switch while the Stream Deck configuration window is open 
 
 The bundled profile does not include this association because Stream Deck saves the full executable path, which can differ between computers. For more details, see Elgato's [Smart Profiles guide](https://help.elgato.com/hc/en-us/articles/360053419071-Elgato-Stream-Deck-Smart-Profiles).
 
+### Monitor subagents
+
+From **v0.2.0**, open **Active session** (or any session) and press **Agents**, the bottom-row key next to **Back**. The key shows how many subagents the session has, and its icon pulses while any of them is working. Views with up to 12 items use the spare Previous and Next keys, so they only page once they grow past that. The Agents page lists that session's runtime subagents, with animated **Working** tiles and separate **Waiting**, **Completed**, **Failed** and **Cancelled** states. Press an agent for its status, type, model and active time when the runtime provides them. The view is read-only.
+
+This requires the updated per-session extension bridge (`npm run extension:install`, then reload extensions in the session) and a Copilot runtime that exposes the experimental task-list API. The app's companion feed alone does not provide subagent data. An absent or incompatible bridge shows an unavailable message, not an empty team. **No subagents** means the runtime returned an empty agent list.
+
+**Waiting** means a multi-turn agent is idle and can accept another assignment. Finishing a response does not necessarily complete the whole task. Task snapshots refresh about every five seconds while the deck is visible. **Active session** follows the session open in the app; sessions opened from the deck's session list stay selected. Prompts, agent responses and raw error messages are not forwarded to the deck. Squad-specific roster roles and standalone Squad CLI connections are not included yet.
+
 ## Release
 
 ```powershell

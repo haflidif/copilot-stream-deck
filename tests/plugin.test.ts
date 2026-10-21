@@ -27,11 +27,16 @@ test("compiled plugin registers, renders 15 keys, navigates, animates and stops 
       const data = snapshot();
       data.bridgeSessionId = "other";
       data.details = { id: "other", name: "Other session", model: "other-model" };
+      data.capabilities.agents = { available: true };
+      data.agents = [{ id: "agent-1", name: "Other worker", agentType: "task", status: "idle", startedAt: "2026-10-20T22:00:00Z" }];
       return data;
     },
     command: async (command) => { otherCommands.push(command); },
   }, "other", directory);
-  const bridge = await startBridge({ snapshot: async () => snapshot(), command: async (command) => { commands.push(command); } }, "attached", directory);
+  const bridge = await startBridge({ snapshot: async () => ({
+    ...snapshot(), agents: [{ id: "agent-1", name: "Attached worker", agentType: "task", status: "running", startedAt: "2026-10-20T22:00:00Z" }],
+    capabilities: { ...snapshot().capabilities, agents: { available: true } },
+  }), command: async (command) => { commands.push(command); } }, "attached", directory);
   const exited = spawn(process.execPath, ["-e", ""]);
   await once(exited, "exit");
   await delay(20);
@@ -62,8 +67,9 @@ test("compiled plugin registers, renders 15 keys, navigates, animates and stops 
   child.stderr.on("data", (data: Buffer) => { output += data.toString(); });
   function waitFor(check: () => boolean): Promise<void> {
     if (check()) return Promise.resolve();
+    const caller = new Error().stack;
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => { cleanup(); reject(new Error(`Plugin condition timed out. ${output}`)); }, 8000);
+      const timer = setTimeout(() => { cleanup(); reject(new Error(`Plugin condition timed out. ${output}\n${caller}`)); }, 8000);
       const listener = () => { if (check()) { cleanup(); resolve(); } };
       function cleanup() { clearTimeout(timer); events.off("message", listener); }
       events.on("message", listener);
@@ -103,6 +109,15 @@ test("compiled plugin registers, renders 15 keys, navigates, animates and stops 
     await waitFor(() => commands.length === 1);
     assert.deepEqual(commands, [{ type: "openSession", id: "attached" }]);
     await waitFor(() => images("key-0").at(-1)?.includes("Open requested") === true);
+    await waitFor(() => images("key-11").at(-1)?.includes(">Agents<") === true);
+    send("keyDown", 11);
+    await waitFor(() => images("key-0").at(-1)?.includes("Attached worker") === true);
+    send("keyDown", 0);
+    await waitFor(() => images("key-1").at(-1)?.includes(">Working<") === true);
+    send("keyDown", 10);
+    await waitFor(() => images("key-0").at(-1)?.includes("Attached worker") === true);
+    send("keyDown", 10);
+    await waitFor(() => images("key-0").at(-1)?.includes("Open in app") === true);
     send("keyDown", 10);
     await waitFor(() => images("key-0").at(-1)?.includes("Working session") === true);
     let releaseOther!: () => void;
@@ -122,6 +137,12 @@ test("compiled plugin registers, renders 15 keys, navigates, animates and stops 
     send("keyDown", 10);
     await waitFor(() => images("key-0").at(-1)?.includes("Working session") === true);
     send("keyDown", 1);
+    await waitFor(() => images("key-2").at(-1)?.includes("other-model") === true);
+    await waitFor(() => images("key-11").at(-1)?.includes(">Agents<") === true);
+    send("keyDown", 11);
+    await waitFor(() => images("key-0").at(-1)?.includes("Other worker") === true);
+    assert.doesNotMatch(images("key-0").at(-1)!, /Attached worker/);
+    send("keyDown", 10);
     await waitFor(() => images("key-2").at(-1)?.includes("other-model") === true);
     send("keyDown", 7);
     await waitFor(() => images("key-0").at(-1)?.includes("example") === true);

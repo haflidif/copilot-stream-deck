@@ -1,5 +1,5 @@
 import { decodeToolResult, deadline, openSessionLink, validateSessionLink, type JoinedSession } from "./app-tools.js";
-import { finite, record, text, type AppSession, type Command, type McpServer, type ModelOption, type Project, type Snapshot } from "../shared/protocol.js";
+import { finite, parseAgents, record, text, type AppSession, type Command, type McpServer, type ModelOption, type Project, type Snapshot } from "../shared/protocol.js";
 
 export function normalizeSessions(value: unknown): AppSession[] {
   const rows = record(value).sessions;
@@ -60,11 +60,16 @@ export class AppProvider {
   private nested?: { time: number; value: Map<string, AppSession & { parentId: string }> };
   private models?: { time: number; value: ModelOption[] };
   private unsubscribe: () => void;
+  private revision = 0;
 
   constructor(private session: JoinedSession, private openLink = openSessionLink) {
     this.unsubscribe = session.on((event) => {
       if (["assistant.turn_start", "user.message", "session.idle", "session.error",
-        "permission.requested", "user_input.requested", "session.model_change"].includes(event.type)) this.last = undefined;
+        "permission.requested", "user_input.requested", "session.model_change", "session.background_tasks_changed",
+        "subagent.started", "subagent.completed", "subagent.failed"].includes(event.type)) {
+        this.last = undefined;
+        this.revision++;
+      }
     });
   }
 
@@ -83,6 +88,7 @@ export class AppProvider {
   }
 
   private async load(): Promise<Snapshot> {
+    const revision = this.revision;
     const snapshot: Snapshot = {
       version: 1, capturedAt: new Date().toISOString(), bridgeSessionId: this.session.sessionId,
       projects: [], sessions: [], mcp: [], errors: [],
@@ -93,9 +99,10 @@ export class AppProvider {
         voice: { available: false, reason: "No verified Copilot app voice-control API" },
         appPins: { available: false, reason: "No verified Copilot app pinned-chat API. Favorites are local to this plugin." },
         model: { available: false },
+        agents: { available: false, reason: "This runtime does not expose agent tasks" },
       },
     };
-    const attempt = async (name: "projects" | "sessions" | "details" | "mcp" | "model", run: () => Promise<void>) => {
+    const attempt = async (name: "projects" | "sessions" | "details" | "mcp" | "model" | "agents", run: () => Promise<void>) => {
       try {
         await run();
         snapshot.capabilities[name] = { available: true };
@@ -120,6 +127,17 @@ export class AppProvider {
       available: this.names.has("create_session"), reason: this.names.has("create_session") ? undefined : "Host session creation tool unavailable",
     };
     await Promise.all([
+      ...(this.session.rpc.tasks?.list ? [attempt("agents", async () => {
+        const result = record(await deadline(this.session.rpc.tasks!.list()));
+        if (!Array.isArray(result.tasks)) throw new Error("No agent tasks array");
+        snapshot.agents = parseAgents(result.tasks.map(record).filter((row) => row.type === "agent").map((row) => ({
+          id: row.id,
+          name: typeof row.displayName === "string" && row.displayName.trim() ? row.displayName : row.agentType,
+          agentType: row.agentType, status: row.status, startedAt: row.startedAt,
+          completedAt: row.completedAt, activeTimeMs: row.activeTimeMs, activeStartedAt: row.activeStartedAt,
+          model: row.resolvedModel ?? row.model,
+        })));
+      })] : []),
       attempt("projects", async () => {
         if (!this.projects || Date.now() - this.projects.time > 60000) {
           this.projects = { value: normalizeProjects(await this.appTool("list_projects")), time: Date.now() };
@@ -187,7 +205,7 @@ export class AppProvider {
     const current = snapshot.sessions.find((row) => row.id === this.session.sessionId);
     if (current && snapshot.details) snapshot.details.name = current.name;
     snapshot.capturedAt = new Date().toISOString();
-    this.last = snapshot;
+    if (revision === this.revision) this.last = snapshot;
     return snapshot;
   }
 

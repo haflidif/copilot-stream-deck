@@ -52,6 +52,7 @@ export interface JoinedSession {
   sessionId: string;
   on(handler: (event: { type: string; data: unknown }) => void): () => void;
   rpc: {
+    tasks?: { list(): Promise<unknown> };
     tools: {
       getCurrentMetadata(): Promise<unknown>;
       execute(params: { name: string; arguments: Record<string, unknown> }): Promise<unknown>;

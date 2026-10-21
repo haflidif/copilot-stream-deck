@@ -372,7 +372,7 @@ test("page key uses a capitalised title and hides arrows on single pages", async
   assert.equal(board.tiles()[12]?.label, "Home");
   assert.equal(board.tiles()[11]?.label, "");
   assert.equal(board.tiles()[14]?.label, "");
-  board.snapshot!.projects = Array.from({ length: 12 }, (_, i) => ({ ...board.snapshot!.projects[0]!, id: `p${i}`, name: `Project ${i}` }));
+  board.snapshot!.projects = Array.from({ length: 13 }, (_, i) => ({ ...board.snapshot!.projects[0]!, id: `p${i}`, name: `Project ${i}` }));
   await board.press(1);
   assert.equal(board.tiles()[12]?.label, "Projects 1/2");
   assert.equal(board.tiles()[11]?.disabled, true);

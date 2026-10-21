@@ -51,6 +51,46 @@ export interface ModelOption {
   efforts: string[];
 }
 
+export type AgentStatus = "running" | "idle" | "completed" | "failed" | "cancelled";
+
+export interface SessionAgent {
+  id: string;
+  name: string;
+  agentType: string;
+  status: AgentStatus;
+  startedAt: string;
+  completedAt?: string;
+  activeTimeMs?: number;
+  activeStartedAt?: string;
+  model?: string;
+}
+
+/** Whitelist display metadata only. Task prompts, responses and raw errors stay in the runtime. */
+export function parseAgents(value: unknown): SessionAgent[] {
+  if (!Array.isArray(value)) throw new Error("Invalid agents array");
+  const ids = new Set<string>();
+  return value.map((value) => {
+    const row = record(value);
+    const id = text(row.id, "agent id");
+    if (ids.has(id)) throw new Error("Duplicate agent id");
+    ids.add(id);
+    if (!["running", "idle", "completed", "failed", "cancelled"].includes(String(row.status))) throw new Error("Invalid agent status");
+    const time = (key: string, required = false): string | undefined => {
+      if (row[key] === undefined && !required) return;
+      if (typeof row[key] !== "string" || !Number.isFinite(Date.parse(row[key]))) throw new Error(`Invalid agent ${key}`);
+      return row[key];
+    };
+    const activeTimeMs = finite(row.activeTimeMs);
+    if (row.activeTimeMs !== undefined && (activeTimeMs === undefined || activeTimeMs < 0)) throw new Error("Invalid agent active time");
+    return {
+      id, name: text(row.name, "agent name"), agentType: text(row.agentType, "agent type"),
+      status: row.status as AgentStatus, startedAt: time("startedAt", true)!,
+      completedAt: time("completedAt"), activeStartedAt: time("activeStartedAt"), activeTimeMs,
+      model: typeof row.model === "string" && row.model.trim() ? row.model : undefined,
+    };
+  });
+}
+
 export interface Snapshot {
   version: 1;
   capturedAt: string;
@@ -61,7 +101,9 @@ export interface Snapshot {
   mcp: McpServer[];
   /** Models the session can switch to. Older bridges do not send it. */
   models?: ModelOption[];
-  capabilities: Record<"projects" | "sessions" | "openSession" | "newChat" | "details" | "mcp" | "voice" | "appPins" | "model", Capability>;
+  /** Runtime subagents belonging only to bridgeSessionId, never app-wide child sessions. */
+  agents?: SessionAgent[];
+  capabilities: Record<"projects" | "sessions" | "openSession" | "newChat" | "details" | "mcp" | "voice" | "appPins" | "model", Capability> & { agents?: Capability };
   errors: string[];
 }
 
@@ -130,8 +172,11 @@ export function parseSnapshot(value: unknown): Snapshot {
   if (obj.version !== 1 || !Array.isArray(obj.projects) || !Array.isArray(obj.sessions) ||
       !Array.isArray(obj.mcp) || !Array.isArray(obj.errors)) throw new Error("Incompatible bridge response");
   const raw = record(obj.capabilities);
+  if (raw.agents !== undefined && record(raw.agents).available === true && !Array.isArray(obj.agents)) {
+    throw new Error("Agent capability has no task snapshot");
+  }
   const capability = (key: keyof Snapshot["capabilities"]): Capability => {
-    if (key === "model" && raw[key] === undefined) return { available: false, reason: "Bridge is out of date" };
+    if ((key === "model" || key === "agents") && raw[key] === undefined) return { available: false, reason: "Bridge is out of date" };
     const value = record(raw[key]);
     if (typeof value.available !== "boolean") throw new Error(`Invalid ${key} capability`);
     return { available: value.available, reason: typeof value.reason === "string" ? value.reason : undefined };
@@ -166,11 +211,12 @@ export function parseSnapshot(value: unknown): Snapshot {
       return { id: text(row.id, "model id"), name: text(row.name, "model name"),
         efforts: Array.isArray(row.efforts) ? row.efforts.filter((effort): effort is string => typeof effort === "string" && !!effort) : [] };
     }) } : {}),
+    ...(obj.agents === undefined ? {} : { agents: parseAgents(obj.agents) }),
     errors: obj.errors.map((value) => text(value, "error")),
     capabilities: {
       projects: capability("projects"), sessions: capability("sessions"), openSession: capability("openSession"),
       newChat: capability("newChat"), details: capability("details"), mcp: capability("mcp"),
-      voice: capability("voice"), appPins: capability("appPins"), model: capability("model"),
+      voice: capability("voice"), appPins: capability("appPins"), model: capability("model"), agents: capability("agents"),
     },
     details: details ? {
       id: text(details.id, "details id"), name: text(details.name, "details name"),
