@@ -1,182 +1,48 @@
 # Copilot Companion for Stream Deck
 
-An unofficial companion for the GitHub Copilot desktop app on Windows, with experimental macOS support, designed for the original 15-key Stream Deck and MK.2.
+An unofficial companion for the GitHub Copilot desktop app on Windows, with [experimental macOS support](docs/install.md#macos), designed for the original 15-key Stream Deck and MK.2.
 
 ![Tapping through Projects, a session and its subagents and back Home, where a finished session gets confetti](docs/images/navigation.gif)
 
-This is a working starter, not feature parity with Logitech's Copilot integration. It connects to the **existing app** through an experimental Copilot extension bridge. It does not start an independent Copilot SDK runtime, scrape app databases, or automate mouse clicks.
+Browse your Copilot projects and sessions, see at a glance what is working and what needs you, and control a session without leaving what you're doing. It connects to the existing Copilot app, with no mouse automation and no credentials in Stream Deck.
 
-## Screenshots
+## Highlights
 
-The pictures use made-up demo data and are rendered with the plugin's own drawing code (`npm run screenshots` for the pictures, `npm run gif` for the animation).
-
-![Home and session views on a 15-key Stream Deck](docs/images/hero.png)
-
-| Projects | Sessions |
-| --- | --- |
-| ![Projects view](docs/images/projects.png) | ![Sessions view](docs/images/sessions.png) |
-
-Copilot on the Home key reacts to what is going on: it works, sleeps, asks for you, and sweats when the context is nearly full.
+- **Projects and sessions** on the deck, with sub-sessions grouped under their parent.
+- **Needs you** and **Finished** keys, so a waiting or finished session is never missed.
+- **A Copilot with moods** that works, sleeps, says *Psst!* and sweats when the context is nearly full.
+- **Confetti** when a session finishes.
+- **Push to talk** and **answer questions** straight from the keys.
+- **Model, context ring and AI credits** for each session, with model switching and MCP toggles.
+- **Agents** page to watch a session's subagents work.
 
 ![Copilot moods: working, sleeping, needs you and context nearly full](docs/images/moods.png)
 
-When a session finishes, its key fires a few bursts of confetti.
+See all [features](docs/features.md).
 
-![Confetti bursts on a finished session](docs/images/confetti.png)
+## Quick start
 
-## Included
+1. Download `com.haflidif.copilot.streamDeckPlugin` from the [latest release](https://github.com/haflidif/copilot-stream-deck/releases/latest) and double-click it.
+2. In the GitHub Copilot app, turn on **Companion device integration** (Settings, Experiments).
+3. Accept the bundled profile and select **Copilot Companion** in Stream Deck.
 
-- A position-aware 5-by-3 dashboard with project and session browsing, paging, Back and Home.
-- Animated blue-dot session tiles, readable labels, attention/error indicators and reduced motion.
-- Sessions waiting for you get a pulsing amber border, and a **Needs you** home tile counts them and opens the list. If the only waiting session is open in the app with a question, it goes straight to the answers. In a session's view, the **Needs you** tile opens that session in the app, and then turns into **Answer question**.
-- When a session finishes working, its tile flashes green and a **Finished** home tile takes you to it. The flash stays until you open the session on the deck, or for 5 minutes.
-- **Working** shows an animated Copilot that looks around and blinks while sessions work, with a badge for how many are busy. When nothing runs it turns into **Sleeping**: the Copilot dims, closes its eyes and snores a few z's. Press it to list the working sessions. Copilot also reacts: when a session needs you it hops with a gold "!" and says **Psst!** (press to jump to what needs you), and when context passes 85% a sweat drop runs down its head. When a session finishes, its key fires a few bursts of confetti before settling into the green Finished flash (skipped with reduced motion).
-- Empty keys run a slow sparkle wave across the deck. With reduced motion it stays still.
-- Sub-sessions (sessions another session created) are grouped under their parent. The parent key shows a "+N" pill, and pressing it lists the parent followed by its sub-sessions. The app sidebar feed has no sub-sessions, so they come from the bridge: a bridge must be running, the list is read about once a minute, and their status can lag by about five seconds. Needs you, Finished and Working still list them directly.
-- Context use is shown as a ring that turns amber from 60% and red from 85%. It fills up from empty when you open a session and glides to new values as the context grows. With reduced motion it shows the value straight away.
-- An **Agents** key on each session page shows how many subagents the session has, and pulses while any of them is working. Press it to see each agent's status, model and active time. See [Monitor subagents](#monitor-subagents).
-- App-wide project and session status, refreshed approximately every five seconds while keys are visible.
-- Opening existing sessions in the app.
-- A confirmed action to create an idle standalone local chat, without starting an agent or creating a code checkout.
-- Model, reasoning, context usage, context limit and AI credits for the session running the bridge. The Model key shows the provider logo and a short name, for example "GPT-6 Astra" or "Auto: Opus 5.5".
-- Model switching (experimental): press the Model key to pick a model, then confirm. Auto asks for a mode first (Efficiency, Balance or Intelligence), and for other models the Reasoning key offers the levels that model supports. The change applies to the session, but the Copilot app's model picker keeps showing its old choice because it does not follow changes made outside the app. Only works for the session running the bridge.
-- Confirmed MCP enable/disable controls. For the session active in the app they use the app's own MCP list and toggle, with no bridge needed. Servers the app locks (for example by policy) are shown but cannot be changed.
-- Local favorites, stored in Stream Deck plugin settings, shown together with the sessions pinned in the app.
-- An authenticated loopback bridge, with no GitHub credentials entered into Stream Deck.
+For the optional session bridge, automatic profile switching and requirements, see [Install and set up](docs/install.md).
 
-**Push to talk:** the mic tile (on the session view) uses the Copilot app's "Companion device integration" experiment (Settings, Experiments), the same local API the Logitech keypad uses. Turn it on and install the app's voice model. Hold the key to talk, release to stop. Dictation goes to the session that is active in the app window. The same feed gives live model, reasoning, context and credits for the session open in the app window, so that session shows live values even without its bridge. This API is undocumented and may change. With the experiment on, the home "This session" key becomes "Active session" and always follows the session open in the app window. "Open in app" switches sessions directly through the app (no deep link), and "New" offers "In this project" (a new session in the project the app window is showing) or "New chat" (a standalone chat, through the bridge).
-**Answer questions:** when the session open in the app window is waiting on a question, the free home key next to Needs you turns into a pulsing "Answer question" key. Press it to get one key per choice (the app only shares the start of each label), plus "Type answer" when free text is allowed, which moves focus to the app's answer box. A choice is sent as soon as you press it. This uses the same companion API.
+## Documentation
 
-**Not connected yet:** pinning or unpinning from the deck, model selection for sessions without a running bridge, and MCP control for sessions that are neither active in the app nor running a bridge. Unavailable features are explicitly marked. Idle does not mean completed.
+| | |
+| --- | --- |
+| [Features](docs/features.md) | Everything the deck can do |
+| [Install and set up](docs/install.md) | Requirements, the session bridge and Smart Profiles |
+| [How it works](docs/how-it-works.md) | Bridges, runtimes, saved values and opening sessions |
+| [Local data and permissions](docs/privacy.md) | What stays on your machine and the security model |
+| [Development](docs/development.md) | Building, testing, previews and releases |
+| [Integration findings](docs/integration.md) | The Copilot and Stream Deck APIs in depth |
 
-See [the integration findings](docs/integration.md) for the complete feature matrix and remaining work.
+## Contributing
 
-## Requirements
-
-- Windows 10 or later, or macOS 13 or later. macOS support is experimental and not yet confirmed on a Mac, see [macOS](#macos).
-- Stream Deck software 6.6 or later. The starter targets SDK 2.1.2 and Node 20 to support the locally installed Stream Deck 7.0.3.
-- Original Stream Deck or MK.2 with 15 keys. Other layouts are deliberately not supported yet.
-- Node.js 20.19 or later for development.
-- A GitHub Copilot app build supporting `@github/copilot-sdk/extension`, session RPC and app tool execution. This is an experimental, version-dependent integration.
-
-## Install
-
-The plugin is shared through GitHub Releases, not the Elgato Marketplace.
-
-1. Download `com.haflidif.copilot.streamDeckPlugin` from the [latest release](https://github.com/haflidif/copilot-stream-deck/releases/latest) and double-click it. Stream Deck installs it.
-2. In the GitHub Copilot app, turn on **Companion device integration** (experimental). The deck reads projects and sessions from it.
-3. If Stream Deck offers the bundled profile, accept it, then select **Copilot Companion** in the profile dropdown. All 15 keys are already configured. Installation leaves your current profile selected and does not replace your existing layouts.
-
-The bundled profile is included from **v0.1.1**. If you already have the plugin installed, you can also download `copilot-companion.streamDeckProfile` from the release and double-click it to import the ready-made layout. If your existing Copilot profile already works, keep using it; there is no need to import another copy.
-
-The optional session bridge (live model, context and MCP controls for a session) is installed from source with `npm run extension:install`, see below.
-
-### macOS
-
-macOS support is experimental. The code paths are in place, but nobody has run it on a Mac yet, so treat it as a test build until this is confirmed in [#1](https://github.com/haflidif/copilot-stream-deck/issues/1). What differs from Windows:
-
-- **Open in app** opens the session link with `open` instead of the Windows URL handler.
-- Bridge pairing files are kept in `~/Library/Application Support/CopilotStreamDeck/bridges`.
-- The bridge extension and session history are read from `~/.copilot`, the same as on Windows.
-- Labels use Segoe UI on Windows and fall back to Arial on a Mac, so text can look slightly different.
-
-Not yet known: whether the Copilot app on macOS offers the same **Companion device integration** experiment and handles `ghapp://` session links. If something does not work, please comment on [#1](https://github.com/haflidif/copilot-stream-deck/issues/1).
-
-### Switch automatically when Copilot is active
-
-Stream Deck's built-in **Smart Profiles** can switch to the Copilot layout when the GitHub Copilot app is in the foreground. This is optional and only needs to be configured once.
-
-1. Open GitHub Copilot, then open **Stream Deck > Preferences > Profiles**.
-2. Select the **Copilot Companion** profile.
-3. In the **Application** dropdown, choose **GitHub Copilot**. If it is not listed, choose **Other...** and locate the app's executable.
-4. Leave **Make this my default profile** unchecked if you want to keep your normal default layout outside Copilot.
-5. Close or minimize the Stream Deck configuration windows, then bring GitHub Copilot to the foreground.
-
-Smart Profiles do not switch while the Stream Deck configuration window is open for editing. Keep your usual profile set as the default for apps without an associated profile.
-
-The bundled profile does not include this association because Stream Deck saves the full executable path, which can differ between computers. For more details, see Elgato's [Smart Profiles guide](https://help.elgato.com/hc/en-us/articles/360053419071-Elgato-Stream-Deck-Smart-Profiles).
-
-### Monitor subagents
-
-From **v0.2.0**, open **Active session** (or any session) and press **Agents**, the bottom-row key next to **Back**. The key shows how many subagents the session has, and its icon pulses while any of them is working. Views with up to 12 items use the spare Previous and Next keys, so they only page once they grow past that. The Agents page lists that session's runtime subagents, with animated **Working** tiles and separate **Waiting**, **Completed**, **Failed** and **Cancelled** states. Press an agent for its status, type, model and active time when the runtime provides them. The view is read-only.
-
-This requires the updated per-session extension bridge (`npm run extension:install`, then reload extensions in the session) and a Copilot runtime that exposes the experimental task-list API. The app's companion feed alone does not provide subagent data. An absent or incompatible bridge shows an unavailable message, not an empty team. **No subagents** means the runtime returned an empty agent list.
-
-**Waiting** means a multi-turn agent is idle and can accept another assignment. Finishing a response does not necessarily complete the whole task. Task snapshots refresh about every five seconds while the deck is visible. **Active session** follows the session open in the app; sessions opened from the deck's session list stay selected. Prompts, agent responses and raw error messages are not forwarded to the deck. Squad-specific roster roles and standalone Squad CLI connections are not included yet.
-
-## Release
-
-```powershell
-npm run release
-```
-
-This builds without the source map, generates and bundles the 15-key profile, runs the Elgato validator and writes `dist\com.haflidif.copilot.streamDeckPlugin`. It also writes `dist\copilot-companion.streamDeckProfile` for people who already have the plugin installed. Bump `Version` in the manifest and `version` in `package.json` first, then attach both files to a GitHub Release.
-
-## Build and use
-
-Run these commands from the repository:
-
-```powershell
-npm config get registry
-npm ci
-npm run validate
-npm run plugin:validate
-npm run plugin:pack
-```
-
-Use your usual npm registry.
-
-1. Run `npm run extension:install`. This builds the bridge and copies it to `~/.copilot/extensions/copilot-stream-deck/` (`%USERPROFILE%\.copilot\extensions\copilot-stream-deck\` on Windows), making it discoverable by Copilot runtimes outside this repository. It does not start a runtime for every conversation in the sidebar. Existing running runtimes need an extension reload to discover it. Run the install command again after changing bridge code.
-2. Install `dist\com.haflidif.copilot.streamDeckPlugin` by double-clicking it.
-3. Accept the bundled profile when Stream Deck offers it, then select **Copilot Companion** in the profile dropdown. Your existing layouts are preserved. If you skipped the offer, double-click `dist\copilot-companion.streamDeckProfile` to import it.
-4. All 15 keys are preconfigured. The physical key positions determine their content. Leave custom images unset. No personal connection settings, device IDs or app associations are included.
-5. Select a tile to open its settings. Check the connection status and attached-session ID. Leave the bridge ID blank to select the most recently loaded bridge, or specify the ID for an unambiguous connection.
-
-At least one Copilot runtime must be running with the extension for the deck to connect. A visible conversation is not proof that its runtime is running. If the default bridge closes, automatic selection reconnects to another running bridge; an explicitly pinned default stays pinned. Selecting a session on the deck reads its own model, context, credits and MCP controls when its bridge is running. Sessions without a bridge can still be opened in the app. Their metrics are unavailable unless the session's local history has saved values, which are shown and labelled as saved. They are never copied from another session.
-
-Copilot can stop an idle session's CLI runtime, which also stops its extensions, while keeping the conversation visible. In the observed app build, the host logged an idle runtime shutdown about ten minutes after the last activity. Switching tabs does not guarantee that runtime starts again. The current session-extension API does not provide a verified way for this connector to wake another app runtime without submitting work. Repeated extension reinstalls or refreshing Stream Deck will not fix that lifecycle limitation. A missing bridge is labelled **No bridge** and **Bridge not running**. When the app's Companion device integration is on, the project and session lists come from the app sidebar itself, so navigation and status keep working even without a bridge.
-
-When a session has no live bridge, the plugin falls back to that session's local history file (`%USERPROFILE%\.copilot\session-state\<id>\events.jsonl`). It reads the file without changing it, scanning backwards from the end, and shows the last saved model, context use, context limit and AI credits. The status tile then follows the session's state (for example **Idle** or **Ready to merge**), and reads **Saved values** only when the state is unknown. These are the values from the session's last run, not live numbers. Context use is the prompt size of the last model request, and credits marked partial come from the last usage checkpoint. Reasoning is only shown when the history contains a model change. MCP controls stay disabled until the session runs again.
-
-**Open in app** fetches the session's `app_url` from Copilot's `list_sessions_and_chats` catalog and opens that link through the system URL handler (the registered Windows handler, or `open` on macOS). Only a `ghapp://sessions/` link matching the selected session ID is accepted. It does not call the agent's `navigate_to` tool, which can produce a "wants to switch you" prompt from background sessions. After the system accepts the launch the tile says **Open requested** and ignores repeat presses until you leave the screen. This does not prove the app finished switching or started the session runtime, and does not approve any host prompt.
-
-The bottom row is always **Back, Previous, Home/status, Refresh, Next**. The top two rows display up to ten items per page.
-
-The bundled profile is editable and does not replace existing hardware profiles. To enable automatic switching, follow [Switch automatically when Copilot is active](#switch-automatically-when-copilot-is-active). A separate VS Code profile can use editor hotkeys; that is distinct from Copilot session integration. The packaging follows Elgato's [bundled profiles guide](https://docs.elgato.com/streamdeck/sdk/guides/profiles/).
-
-## Development
-
-```powershell
-npm run typecheck
-npm test
-npm run build
-npm run plugin:validate
-```
-
-`npm run preview` creates `dist\preview.svg`, showing the actual tile renderer with clearly labelled synthetic data.
-
-`npm run plugin:link` is an optional Elgato development link to this checkout. Use it instead of installing a packaged copy, not in addition to one. After rebuilding, restart the plugin through the Elgato CLI or Stream Deck app. Reinstall the Copilot extension with `npm run extension:install` after changing bridge code.
-
-The Elgato CLI can report a successful restart even when the running plugin does not restart. Confirm the process actually restarted or check for a new plugin connection in Stream Deck's log. If it did not restart, quit Stream Deck from its system-tray menu and reopen it; reinstalling the plugin is unnecessary.
-
-The automated checks cover rendering, navigation, feature gating, protocol validation, native tool-result decoding, local HTTP authentication and the compiled plugin's Stream Deck WebSocket lifecycle. Physical display quality, animation smoothness, voice support and the complete Logitech workflow still require further work and hardware use.
-
-## Local data and permissions
-
-Pairing descriptors are stored outside the repository at `%LOCALAPPDATA%\CopilotStreamDeck\bridges\<session-id>.json` on Windows and `~/Library/Application Support/CopilotStreamDeck/bridges/<session-id>.json` on macOS. Each contains an ephemeral random bearer token and a local port. Do not share or commit those files. Each runtime with the extension loaded starts its own bridge, so several descriptors can exist at once. Temporary app catalog probes can also load the extension and then terminate; their descriptors do not represent persistent conversation runtimes. Descriptors are deleted on a normal extension shutdown, and a starting bridge removes files left behind by dead processes. Automatic selection uses the bridge of the session that is active in the app when the companion API is on, then the newest bridge whose process is still running. The app also starts hidden warmup sessions that load the extension and are cleaned up shortly after, so following the active session keeps the deck off those. A connection that stops answering is looked up again once, so a reloaded bridge on a new port is picked up without an error. Pin one by session ID in tile settings to choose the default for "This session" and the home MCP button. Selecting another session temporarily routes its details and MCP controls to its own bridge without changing that default.
-
-The bridge listens only on `127.0.0.1`, rejects browser-origin requests, and has a fixed command allowlist. It is intended for a trusted single-user desktop. File permissions inherit the user profile's permissions (Windows ACLs, or the home folder on macOS); the token is not protection against another process already running as that user.
-
-The bridge exposes project/session names, status, metrics and MCP names, not conversation bodies or credentials. Native app tools and the Copilot runtime retain their permission checks. No button approves plans, tool permissions, commits, pushes or merges.
-
-This project is not an official GitHub or Elgato product. The six-dot graphics are original assets, not extracted Logitech artwork.
-
-## Icons
-
-Tile icons come from [GitHub Primer Octicons](https://github.com/primer/octicons) (MIT License, Copyright GitHub Inc.). `npm run icons` regenerates `src/plugin/icons.ts` with only the icons the deck uses. "Open in app" uses the GitHub mark and the session keys use the Copilot icon. Icons and values are coloured with GitHub Primer colours, and the Copilot icon uses a purple to blue gradient. Status colours (attention, error, finished) and project colours always take priority. The GitHub and Copilot marks are trademarks of GitHub, Inc.
-
-The Model key shows the provider's logo (Anthropic Claude, OpenAI, Google Gemini, xAI Grok, Microsoft, and the GitHub Copilot mark for Auto) above a short model name. The logos come from [LobeHub Icons](https://github.com/lobehub/lobe-icons) (MIT License) and are kept in `src/plugin/brands.ts`. They are trademarks of their owners and are only used to show where a model comes from. This project is not affiliated with or endorsed by any of them. See [NOTICE.md](NOTICE.md).
+Contributions are welcome, from bug reports and testing on other Stream Deck models to pull requests. Read [CONTRIBUTING.md](CONTRIBUTING.md) to get started and follow the [Code of Conduct](CODE_OF_CONDUCT.md). For help, see [SUPPORT.md](SUPPORT.md). Report security problems privately as described in [SECURITY.md](SECURITY.md).
 
 ## License
 
-MIT, see [LICENSE](LICENSE). Trademark notes are in [NOTICE.md](NOTICE.md).
+MIT, see [LICENSE](LICENSE). This project is not an official GitHub or Elgato product. Credits and trademarks are listed in [NOTICE.md](NOTICE.md).

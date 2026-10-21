@@ -1,0 +1,54 @@
+name: Feature request
+description: Suggest a new key, page or improvement.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. Please check the [existing issues](https://github.com/haflidif/copilot-stream-deck/issues?q=is%3Aissue) first, in case someone already suggested it.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe what you're trying to do and what gets in the way today.
+      placeholder: When several sessions are running I can't tell which one needs my input without opening the app.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to see?
+      description: Describe how it could work on the deck. Sketches and mock-ups are welcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+    validations:
+      required: false
+
+  - type: dropdown
+    id: device
+    attributes:
+      label: Which Stream Deck do you use?
+      multiple: true
+      options:
+        - Stream Deck (15 keys) or MK.2
+        - Stream Deck XL
+        - Stream Deck Mini or Neo
+        - Stream Deck +
+        - Other
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contributing
+      options:
+        - label: I'd like to help build this.
+          required: false
