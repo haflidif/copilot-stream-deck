@@ -1,6 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { AppProvider } from "../src/bridge/provider.js";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { AppProvider, hasSquadTeam } from "../src/bridge/provider.js";
 import { Dashboard } from "../src/plugin/dashboard.js";
 import { renderTile } from "../src/plugin/render.js";
 import { parseAgents, parseSnapshot, type SessionAgent } from "../src/shared/protocol.js";
@@ -194,4 +197,32 @@ test("agent detail handles removed tasks and freezes active time for idle agents
   assert.equal(board.tiles()[0]?.label, "Agent no longer listed");
   board.snapshot!.capabilities.agents = { available: false, reason: "Agents unavailable" };
   assert.equal(board.tiles()[0]?.label, "Agents unavailable");
+});
+
+test("sessions in a Squad project show the Squad logo on the Agents key", async () => {
+  const folder = await mkdtemp(join(tmpdir(), "squad-"));
+  try {
+    assert.equal(await hasSquadTeam(folder), false);
+    assert.equal(await hasSquadTeam("relative/folder"), false);
+    await mkdir(join(folder, ".squad"));
+    await writeFile(join(folder, ".squad", "team.md"), "# Team");
+    assert.equal(await hasSquadTeam(folder), true);
+    const session = joinedSession();
+    session.rpc.metadata.snapshot = async () => ({ summary: "Example", workingDirectory: folder });
+    const provider = new AppProvider(session);
+    try {
+      const data = await provider.snapshot();
+      assert.equal(data.squad, true);
+      assert.equal(parseSnapshot(JSON.parse(JSON.stringify(data))).squad, true);
+    } finally { provider.dispose(); }
+  } finally { await rm(folder, { recursive: true, force: true }); }
+
+  const board = boardWithAgents();
+  await board.press(6);
+  assert.equal(board.tiles()[11]?.logo, undefined);
+  assert.doesNotMatch(renderTile(board.tiles()[11]!), /<image/);
+  board.snapshot = { ...board.snapshot!, squad: true };
+  assert.equal(board.tiles()[11]?.logo, "squad");
+  assert.equal(board.tiles()[11]?.count, 1);
+  assert.match(renderTile(board.tiles()[11]!), /<image[^>]+href="data:image\/png;base64,/);
 });

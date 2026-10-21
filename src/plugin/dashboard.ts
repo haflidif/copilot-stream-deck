@@ -35,6 +35,8 @@ export interface Tile {
   count?: number;
   /** Icon slowly fades in and out to show background work. */
   breathe?: boolean;
+  /** Full-colour logo drawn in place of the icon. */
+  logo?: "squad";
   /** Copilot reactions: startled when a session needs you, sweating when context is nearly full. */
   mood?: { alert?: boolean; sweat?: boolean };
   action?: Action;
@@ -345,6 +347,7 @@ export class Dashboard {
           const off = this.agentMessage(id);
           const agents = off ? [] : data.agents ?? [];
           return { ...viewTile("Agents", "agent", { type: "agents", page: 0, sessionId: id, follow: this.view.follow }),
+            ...(own && data.squad ? { logo: "squad" as const } : {}),
             ...(off ? { value: "Unavailable", tone: "muted" as Tone } : { count: agents.length, breathe: agents.some((row) => row.status === "running") }) };
         })(),
       ];

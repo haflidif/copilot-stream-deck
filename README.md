@@ -91,7 +91,9 @@ From **v0.2.0**, open **Active session** (or any session) and press **Agents**, 
 
 This requires the updated per-session extension bridge (`npm run extension:install`, then reload extensions in the session) and a Copilot runtime that exposes the experimental task-list API. The app's companion feed alone does not provide subagent data. An absent or incompatible bridge shows an unavailable message, not an empty team. **No subagents** means the runtime returned an empty agent list.
 
-**Waiting** means a multi-turn agent is idle and can accept another assignment. Finishing a response does not necessarily complete the whole task. Task snapshots refresh about every five seconds while the deck is visible. **Active session** follows the session open in the app; sessions opened from the deck's session list stay selected. Prompts, agent responses and raw error messages are not forwarded to the deck. Squad-specific roster roles and standalone Squad CLI connections are not included yet.
+**Waiting** means a multi-turn agent is idle and can accept another assignment. Finishing a response does not necessarily complete the whole task. Task snapshots refresh about every five seconds while the deck is visible. **Active session** follows the session open in the app; sessions opened from the deck's session list stay selected. Prompts, agent responses and raw error messages are not forwarded to the deck.
+
+If the session's folder has a [Squad](https://github.com/bradygaster/squad) team (`.squad/team.md`, or `.ai-team/team.md` from older versions), the Agents key shows the Squad logo instead of the agent icon. Squad roster roles and standalone Squad CLI connections are not included yet.
 
 ## Release
 
@@ -164,7 +166,7 @@ This project is not an official GitHub or Elgato product. The six-dot graphics a
 
 Tile icons come from [GitHub Primer Octicons](https://github.com/primer/octicons) (MIT License, Copyright GitHub Inc.). `npm run icons` regenerates `src/plugin/icons.ts` with only the icons the deck uses. "Open in app" uses the GitHub mark and the session keys use the Copilot icon. Icons and values are coloured with GitHub Primer colours, and the Copilot icon uses a purple to blue gradient. Status colours (attention, error, finished) and project colours always take priority. The GitHub and Copilot marks are trademarks of GitHub, Inc.
 
-The Model key shows the provider's logo (Anthropic Claude, OpenAI, Google Gemini, xAI Grok, Microsoft, and the GitHub Copilot mark for Auto) above a short model name. The logos come from [LobeHub Icons](https://github.com/lobehub/lobe-icons) (MIT License) and are kept in `src/plugin/brands.ts`. They are trademarks of their owners and are only used to show where a model comes from. This project is not affiliated with or endorsed by any of them. See [NOTICE.md](NOTICE.md).
+The Model key shows the provider's logo (Anthropic Claude, OpenAI, Google Gemini, xAI Grok, Microsoft, and the GitHub Copilot mark for Auto) above a short model name. The logos come from [LobeHub Icons](https://github.com/lobehub/lobe-icons) (MIT License) and are kept in `src/plugin/brands.ts`. They are trademarks of their owners and are only used to show where a model comes from. This project is not affiliated with or endorsed by any of them. The Agents key shows the [Squad](https://github.com/bradygaster/squad) logo by Brady Gaster (MIT License) for Squad projects, kept in `src/plugin/squad-logo.ts`. See [NOTICE.md](NOTICE.md).
 
 ## License
 

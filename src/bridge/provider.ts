@@ -1,3 +1,5 @@
+import { access } from "node:fs/promises";
+import { isAbsolute, join } from "node:path";
 import { decodeToolResult, deadline, openSessionLink, validateSessionLink, type JoinedSession } from "./app-tools.js";
 import { finite, parseAgents, record, text, type AppSession, type Command, type McpServer, type ModelOption, type Project, type Snapshot } from "../shared/protocol.js";
 
@@ -42,6 +44,18 @@ export function nestedSessions(catalog: unknown): Map<string, AppSession & { par
     });
   }
   return children;
+}
+
+/** Squad keeps its team in .squad/team.md; projects set up with older versions use .ai-team/team.md. */
+export async function hasSquadTeam(folder: unknown): Promise<boolean> {
+  if (typeof folder !== "string" || !isAbsolute(folder)) return false;
+  for (const dir of [".squad", ".ai-team"]) {
+    try {
+      await access(join(folder, dir, "team.md"));
+      return true;
+    } catch { /* not this layout */ }
+  }
+  return false;
 }
 
 export function normalizeProjects(value: unknown): Project[] {
@@ -170,6 +184,7 @@ export class AppProvider {
           deadline(this.session.rpc.metadata.snapshot()).then(record),
           deadline(this.session.rpc.metadata.contextInfo({ promptTokenLimit: 0, outputTokenLimit: 0 })).then(record),
         ]);
+        if (await hasSquadTeam(metadata.workingDirectory)) snapshot.squad = true;
         const info = context.contextInfo ? record(context.contextInfo) : {};
         const limit = finite(info.limit);
         const tokens = finite(info.totalTokens);

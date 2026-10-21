@@ -1,6 +1,7 @@
 import type { Tile, Icon, Tone } from "./dashboard.js";
 import { icons } from "./icons.js";
 import { brands } from "./brands.js";
+import { squadLogo } from "./squad-logo.js";
 
 const paths: Record<Icon, string> = Object.fromEntries(Object.entries(icons)
   .map(([key, list]) => [key, list.map((d) => `<path d="${d}"/>`).join("")])) as Record<Icon, string>;
@@ -189,7 +190,14 @@ export function renderTile(tile: Tile, frame = 0, reducedMotion = false, slot?: 
     // A breathing icon shows work is happening without hiding the icon behind the working dots.
     const breath = tile.breathe && !reducedMotion && !tile.disabled
       ? 0.55 + 0.45 * (0.5 + 0.5 * Math.cos((((frame % 24) + 24) % 24) / 24 * 2 * Math.PI)) : 1;
-    center = `${branded.defs}<g transform="translate(${offset} ${tall ? 14 : 16}) scale(${scale})" fill="${branded.fill}" opacity="${breath.toFixed(2)}">${tile.icon ? paths[tile.icon] : ""}</g>`;
+    if (tile.logo === "squad") {
+      // The logo is wider than tall, so it fills the width above the label instead of a square icon box.
+      const width = tall ? 104 : 120;
+      const height = Math.round(width * squadLogo.height / squadLogo.width);
+      center = `<image x="${72 - width / 2}" y="${tall ? 8 : 6}" width="${width}" height="${height}" opacity="${breath.toFixed(2)}" href="${squadLogo.href}" xlink:href="${squadLogo.href}"/>`;
+    } else {
+      center = `${branded.defs}<g transform="translate(${offset} ${tall ? 14 : 16}) scale(${scale})" fill="${branded.fill}" opacity="${breath.toFixed(2)}">${tile.icon ? paths[tile.icon] : ""}</g>`;
+    }
   }
   const counter = tile.count !== undefined && !tile.activity
     ? (() => {
@@ -218,7 +226,7 @@ export function renderTile(tile: Tile, frame = 0, reducedMotion = false, slot?: 
       : tile.selected ? `<rect x="2.5" y="2.5" width="139" height="139" rx="12" fill="none" stroke="${color}" stroke-width="3"/>` : "";
   const confetti = tile.confetti !== undefined && !reducedMotion && !tile.disabled ? renderConfetti(tile.confetti) : "";
   const strip = accent ? `<rect width="144" height="12" fill="${accent}" clip-path="url(#tile)"/>` : "";
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="144" height="144" viewBox="0 0 144 144">
 <defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#1c2230"/><stop offset="1" stop-color="#0d1117"/></linearGradient><clipPath id="tile"><rect width="144" height="144" rx="13"/></clipPath></defs>
 <rect width="144" height="144" rx="13" fill="url(#bg)"/>${strip}${pulse}
 <g opacity="${disabled}" font-family="Segoe UI, Arial, sans-serif">

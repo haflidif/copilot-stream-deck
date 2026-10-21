@@ -9,3 +9,5 @@ Elgato and Stream Deck are trademarks of Corsair Memory, Inc.
 ## Third-party assets
 
 The provider logos in `src/plugin/brands.ts` come from [LobeHub Icons](https://github.com/lobehub/lobe-icons) (`@lobehub/icons-static-svg` 1.95.1), released under the MIT License by LobeHub.
+
+The Squad logo in `src/plugin/squad-logo.ts` comes from [Squad](https://github.com/bradygaster/squad) by Brady Gaster (`docs/src/assets/images/squad-logo.png`), released under the MIT License. It is cropped to the figures, the navy outlines are lightened so they show on a dark key, and it is only shown on the Agents key for projects that use Squad. This project is not affiliated with Squad.
