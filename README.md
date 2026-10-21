@@ -2,7 +2,7 @@
 
 An unofficial, Windows-first companion for the GitHub Copilot desktop app, designed for the original 15-key Stream Deck and MK.2.
 
-![Tapping through Projects, a session and back Home, where a finished session gets confetti](docs/images/navigation.gif)
+![Tapping through Projects, a session and its subagents and back Home, where a finished session gets confetti](docs/images/navigation.gif)
 
 This is a working starter, not feature parity with Logitech's Copilot integration. It connects to the **existing app** through an experimental Copilot extension bridge. It does not start an independent Copilot SDK runtime, scrape app databases, or automate mouse clicks.
 
@@ -34,6 +34,7 @@ When a session finishes, its key fires a few bursts of confetti.
 - Empty keys run a slow sparkle wave across the deck. With reduced motion it stays still.
 - Sub-sessions (sessions another session created) are grouped under their parent. The parent key shows a "+N" pill, and pressing it lists the parent followed by its sub-sessions. The app sidebar feed has no sub-sessions, so they come from the bridge: a bridge must be running, the list is read about once a minute, and their status can lag by about five seconds. Needs you, Finished and Working still list them directly.
 - Context use is shown as a ring that turns amber from 60% and red from 85%. It fills up from empty when you open a session and glides to new values as the context grows. With reduced motion it shows the value straight away.
+- An **Agents** key on each session page shows how many subagents the session has, and pulses while any of them is working. Press it to see each agent's status, model and active time. See [Monitor subagents](#monitor-subagents).
 - App-wide project and session status, refreshed approximately every five seconds while keys are visible.
 - Opening existing sessions in the app.
 - A confirmed action to create an idle standalone local chat, without starting an agent or creating a code checkout.
