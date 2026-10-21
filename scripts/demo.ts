@@ -49,14 +49,14 @@ export function inline(svg: string, prefix: string, x: number, y: number): strin
     .replace(/id="([^"]+)"/g, `id="${prefix}$1"`)
     .replace(/url\(#([^)]+)\)/g, `url(#${prefix}$1)`)
     .replace(/href="#([^"]+)"/g, `href="#${prefix}$1"`)
-    .replace(/<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" width="144" height="144"( viewBox="0 0 144 144")?/, `<svg x="${x}" y="${y}" width="${key}" height="${key}" viewBox="0 0 144 144"`);
+    .replace(/<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"( xmlns:xlink="http:\/\/www\.w3\.org\/1999\/xlink")? width="144" height="144"( viewBox="0 0 144 144")?/, `<svg xmlns:xlink="http://www.w3.org/1999/xlink" x="${x}" y="${y}" width="${key}" height="${key}" viewBox="0 0 144 144"`);
 }
 
 /** Draws a 15-key deck. `pressed` darkens one key and outlines it, like a finger pushing it down. */
-export function deck(tiles: Tile[], frame: number, x = 0, y = 0, pressed?: number): string {
+export function deck(tiles: Tile[], frame: number, x = 0, y = 0, pressed?: number, prefix = ""): string {
   const keys = tiles.slice(0, 15).map((tile, index) => {
     const left = pad + (index % 5) * (key + gap), top = pad + Math.floor(index / 5) * (key + gap);
-    const image = inline(renderTile(tile, frame, false, index), `k${index}-`, left, top);
+    const image = inline(renderTile(tile, frame, false, index), `${prefix}k${index}-`, left, top);
     if (index !== pressed) return image;
     const c = key / 2;
     return `<g transform="translate(${left + c} ${top + c}) scale(0.92) translate(${-left - c} ${-top - c})">${image}` +
