@@ -1,6 +1,6 @@
 # Copilot Companion for Stream Deck
 
-An unofficial, Windows-first companion for the GitHub Copilot desktop app, designed for the original 15-key Stream Deck and MK.2.
+An unofficial companion for the GitHub Copilot desktop app on Windows, with experimental macOS support, designed for the original 15-key Stream Deck and MK.2.
 
 ![Tapping through Projects, a session and its subagents and back Home, where a finished session gets confetti](docs/images/navigation.gif)
 
@@ -53,7 +53,7 @@ See [the integration findings](docs/integration.md) for the complete feature mat
 
 ## Requirements
 
-- Windows 10 or later.
+- Windows 10 or later, or macOS 13 or later. macOS support is experimental and not yet confirmed on a Mac, see [macOS](#macos).
 - Stream Deck software 6.6 or later. The starter targets SDK 2.1.2 and Node 20 to support the locally installed Stream Deck 7.0.3.
 - Original Stream Deck or MK.2 with 15 keys. Other layouts are deliberately not supported yet.
 - Node.js 20.19 or later for development.
@@ -70,6 +70,17 @@ The plugin is shared through GitHub Releases, not the Elgato Marketplace.
 The bundled profile is included from **v0.1.1**. If you already have the plugin installed, you can also download `copilot-companion.streamDeckProfile` from the release and double-click it to import the ready-made layout. If your existing Copilot profile already works, keep using it; there is no need to import another copy.
 
 The optional session bridge (live model, context and MCP controls for a session) is installed from source with `npm run extension:install`, see below.
+
+### macOS
+
+macOS support is experimental. The code paths are in place, but nobody has run it on a Mac yet, so treat it as a test build until this is confirmed in [#1](https://github.com/haflidif/copilot-stream-deck/issues/1). What differs from Windows:
+
+- **Open in app** opens the session link with `open` instead of the Windows URL handler.
+- Bridge pairing files are kept in `~/Library/Application Support/CopilotStreamDeck/bridges`.
+- The bridge extension and session history are read from `~/.copilot`, the same as on Windows.
+- Labels use Segoe UI on Windows and fall back to Arial on a Mac, so text can look slightly different.
+
+Not yet known: whether the Copilot app on macOS offers the same **Companion device integration** experiment and handles `ghapp://` session links. If something does not work, please comment on [#1](https://github.com/haflidif/copilot-stream-deck/issues/1).
 
 ### Switch automatically when Copilot is active
 
@@ -115,8 +126,8 @@ npm run plugin:pack
 
 Use your usual npm registry.
 
-1. Run `npm run extension:install`. This builds the bridge and copies it to `%USERPROFILE%\.copilot\extensions\copilot-stream-deck\`, making it discoverable by Copilot runtimes outside this repository. It does not start a runtime for every conversation in the sidebar. Existing running runtimes need an extension reload to discover it. Run the install command again after changing bridge code.
-2. Install `dist\com.haflidif.copilot.streamDeckPlugin` by opening it in Windows.
+1. Run `npm run extension:install`. This builds the bridge and copies it to `~/.copilot/extensions/copilot-stream-deck/` (`%USERPROFILE%\.copilot\extensions\copilot-stream-deck\` on Windows), making it discoverable by Copilot runtimes outside this repository. It does not start a runtime for every conversation in the sidebar. Existing running runtimes need an extension reload to discover it. Run the install command again after changing bridge code.
+2. Install `dist\com.haflidif.copilot.streamDeckPlugin` by double-clicking it.
 3. Accept the bundled profile when Stream Deck offers it, then select **Copilot Companion** in the profile dropdown. Your existing layouts are preserved. If you skipped the offer, double-click `dist\copilot-companion.streamDeckProfile` to import it.
 4. All 15 keys are preconfigured. The physical key positions determine their content. Leave custom images unset. No personal connection settings, device IDs or app associations are included.
 5. Select a tile to open its settings. Check the connection status and attached-session ID. Leave the bridge ID blank to select the most recently loaded bridge, or specify the ID for an unambiguous connection.
@@ -127,7 +138,7 @@ Copilot can stop an idle session's CLI runtime, which also stops its extensions,
 
 When a session has no live bridge, the plugin falls back to that session's local history file (`%USERPROFILE%\.copilot\session-state\<id>\events.jsonl`). It reads the file without changing it, scanning backwards from the end, and shows the last saved model, context use, context limit and AI credits. The status tile then follows the session's state (for example **Idle** or **Ready to merge**), and reads **Saved values** only when the state is unknown. These are the values from the session's last run, not live numbers. Context use is the prompt size of the last model request, and credits marked partial come from the last usage checkpoint. Reasoning is only shown when the history contains a model change. MCP controls stay disabled until the session runs again.
 
-**Open in app** fetches the session's `app_url` from Copilot's `list_sessions_and_chats` catalog and opens that link through the registered Windows URL handler. Only a `ghapp://sessions/` link matching the selected session ID is accepted. It does not call the agent's `navigate_to` tool, which can produce a "wants to switch you" prompt from background sessions. After Windows accepts the launch the tile says **Open requested** and ignores repeat presses until you leave the screen. This does not prove the app finished switching or started the session runtime, and does not approve any host prompt.
+**Open in app** fetches the session's `app_url` from Copilot's `list_sessions_and_chats` catalog and opens that link through the system URL handler (the registered Windows handler, or `open` on macOS). Only a `ghapp://sessions/` link matching the selected session ID is accepted. It does not call the agent's `navigate_to` tool, which can produce a "wants to switch you" prompt from background sessions. After the system accepts the launch the tile says **Open requested** and ignores repeat presses until you leave the screen. This does not prove the app finished switching or started the session runtime, and does not approve any host prompt.
 
 The bottom row is always **Back, Previous, Home/status, Refresh, Next**. The top two rows display up to ten items per page.
 
@@ -152,9 +163,9 @@ The automated checks cover rendering, navigation, feature gating, protocol valid
 
 ## Local data and permissions
 
-Pairing descriptors are stored outside the repository at `%LOCALAPPDATA%\CopilotStreamDeck\bridges\<session-id>.json`. Each contains an ephemeral random bearer token and a local port. Do not share or commit those files. Each runtime with the extension loaded starts its own bridge, so several descriptors can exist at once. Temporary app catalog probes can also load the extension and then terminate; their descriptors do not represent persistent conversation runtimes. Descriptors are deleted on a normal extension shutdown, and a starting bridge removes files left behind by dead processes. Automatic selection uses the bridge of the session that is active in the app when the companion API is on, then the newest bridge whose process is still running. The app also starts hidden warmup sessions that load the extension and are cleaned up shortly after, so following the active session keeps the deck off those. A connection that stops answering is looked up again once, so a reloaded bridge on a new port is picked up without an error. Pin one by session ID in tile settings to choose the default for "This session" and the home MCP button. Selecting another session temporarily routes its details and MCP controls to its own bridge without changing that default.
+Pairing descriptors are stored outside the repository at `%LOCALAPPDATA%\CopilotStreamDeck\bridges\<session-id>.json` on Windows and `~/Library/Application Support/CopilotStreamDeck/bridges/<session-id>.json` on macOS. Each contains an ephemeral random bearer token and a local port. Do not share or commit those files. Each runtime with the extension loaded starts its own bridge, so several descriptors can exist at once. Temporary app catalog probes can also load the extension and then terminate; their descriptors do not represent persistent conversation runtimes. Descriptors are deleted on a normal extension shutdown, and a starting bridge removes files left behind by dead processes. Automatic selection uses the bridge of the session that is active in the app when the companion API is on, then the newest bridge whose process is still running. The app also starts hidden warmup sessions that load the extension and are cleaned up shortly after, so following the active session keeps the deck off those. A connection that stops answering is looked up again once, so a reloaded bridge on a new port is picked up without an error. Pin one by session ID in tile settings to choose the default for "This session" and the home MCP button. Selecting another session temporarily routes its details and MCP controls to its own bridge without changing that default.
 
-The bridge listens only on `127.0.0.1`, rejects browser-origin requests, and has a fixed command allowlist. It is intended for a trusted single-user desktop. File permissions inherit Windows user-profile ACLs; the token is not protection against another process already running as that user.
+The bridge listens only on `127.0.0.1`, rejects browser-origin requests, and has a fixed command allowlist. It is intended for a trusted single-user desktop. File permissions inherit the user profile's permissions (Windows ACLs, or the home folder on macOS); the token is not protection against another process already running as that user.
 
 The bridge exposes project/session names, status, metrics and MCP names, not conversation bodies or credentials. Native app tools and the Copilot runtime retain their permission checks. No button approves plans, tool permissions, commits, pushes or merges.
 
