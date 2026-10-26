@@ -72,7 +72,22 @@ This needs the session bridge and a Copilot runtime that exposes the experimenta
 
 ### Squad teams
 
-If the session's folder has a [Squad](https://github.com/bradygaster/squad) team (`.squad/team.md`, or `.ai-team/team.md` from older versions), the Agents key shows the Squad logo. Agents whose task name starts with a team member's name, like `neo` or `neo-impl`, are shown as that member. Their page adds the Squad logo and a **Squad role** key with the role from the roster.
+Planned for v0.3.0, currently in [PR #6](https://github.com/haflidif/copilot-stream-deck/pull/6). Install the updated session bridge and reload extensions in the session to use Squad detection.
+
+If the session's working folder has a [Squad](https://github.com/bradygaster/squad) team (`.squad/team.md`, or `.ai-team/team.md` from older versions), the Agents key shows the Squad logo. The bridge reads tables whose first two columns are **Name** and **Role**:
+
+```markdown
+| Name | Role |
+| --- | --- |
+| Neo | Lead |
+| Trinity | Frontend Dev |
+```
+
+Task names match case-insensitively: `neo`, `neo-impl`, `neo_review` and `Neo: review` match Neo, but `neon-scout` does not. The runtime's task name is used, not its description. Matched tasks show the member's name in the list; their page adds the Squad logo and a **Squad role** key. Unmatched tasks keep their original name and ordinary agent page.
+
+Entries such as `@copilot` are skipped. Names longer than 40 characters are skipped, and roles are limited to 40 characters. Detection reads the team file directly in the session's working folder, not parent folders. It does not launch Squad or connect to a standalone Squad CLI.
+
+Checked on a Windows Stream Deck with a demo roster and then with a real seven-member Squad cast. **Waiting** means a multi-turn agent is idle after its response, not necessarily that its whole task is completed. Multiple tasks for the same member appear as separate keys with the same member name.
 
 ![A Squad session: the Agents key with the Squad logo, the Agents list with team member names, and Neo's page with the Squad role](images/squad.png)
 

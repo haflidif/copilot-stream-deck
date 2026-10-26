@@ -65,4 +65,6 @@ This builds without the source map, generates and bundles the 15-key profile, ru
 
 Before running it, bump `Version` in `com.haflidif.copilot.sdPlugin/manifest.json` (four numbers, for example `0.3.0.0`) and `version` in `package.json`. Then attach both files to a GitHub Release.
 
+For v0.3.0, combine the macOS and Squad changes before packaging. The installation docs use the matching release tag, not a temporary feature branch. Remove the tag-availability notice in `docs/install.md` and the upcoming-release notices from the README and Squad feature section when publishing, and check the platform-specific paths in the how-it-works and privacy docs. Thank **@janegilring** in the published release notes for testing macOS installation, bridge discovery, live values, dictation and status changes in [#1](https://github.com/haflidif/copilot-stream-deck/issues/1).
+
 The packaging follows Elgato's [bundled profiles guide](https://docs.elgato.com/streamdeck/sdk/guides/profiles/).
