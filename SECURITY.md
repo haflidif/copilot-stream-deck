@@ -23,7 +23,7 @@ Only the latest release gets security fixes. Pre-releases are for testing and ma
 
 The plugin and the Copilot extension run locally. Things that are in scope include:
 
-- The bridge's loopback HTTP endpoint, its token handling and the descriptor files in `%LOCALAPPDATA%\CopilotStreamDeck\bridges` (or the macOS equivalent)
+- The bridge's loopback HTTP endpoint, its token handling and the descriptor files in `%LOCALAPPDATA%\CopilotStreamDeck\bridges` (Windows) or `~/Library/Application Support/CopilotStreamDeck/bridges` (macOS)
 - Reading the Copilot app's local run files and session history
 - Opening session links, which only accepts `ghapp://sessions/` links for the selected session
 - Anything that could leak session content, tokens or other local data off the machine

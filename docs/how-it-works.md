@@ -21,7 +21,7 @@ A missing bridge is labelled **No bridge** and **Bridge not running**. When the 
 
 ## Saved values
 
-When a session has no live bridge, the plugin falls back to that session's local history file (`%USERPROFILE%\.copilot\session-state\<id>\events.jsonl`). It reads the file without changing it, scanning backwards from the end, and shows the last saved model, context use, context limit and AI credits.
+When a session has no live bridge, the plugin falls back to that session's local history file (`~/.copilot/session-state/<id>/events.jsonl`, under `%USERPROFILE%` on Windows). It reads the file without changing it, scanning backwards from the end, and shows the last saved model, context use, context limit and AI credits.
 
 - These are the values from the session's last run, not live numbers. They are never copied from another session.
 - The status tile follows the session's state (for example **Idle** or **Ready to merge**), and reads **Saved values** only when the state is unknown.
@@ -31,9 +31,9 @@ When a session has no live bridge, the plugin falls back to that session's local
 
 ## Open in app
 
-Without the Companion device integration, **Open in app** fetches the session's `app_url` from Copilot's `list_sessions_and_chats` catalog and opens it through the registered Windows URL handler. Only a `ghapp://sessions/` link matching the selected session ID is accepted.
+Without the Companion device integration, **Open in app** fetches the session's `app_url` from Copilot's `list_sessions_and_chats` catalog and opens it through the system URL handler (the registered Windows handler, or `open` on macOS). Only a `ghapp://sessions/` link matching the selected session ID is accepted.
 
-It does not call the agent's `navigate_to` tool, which can produce a "wants to switch you" prompt from background sessions. Once Windows accepts the launch, the tile says **Open requested** and ignores repeat presses until you leave the screen. This does not prove the app finished switching or started the session runtime, and it never approves a host prompt.
+It does not call the agent's `navigate_to` tool, which can produce a "wants to switch you" prompt from background sessions. Once the system accepts the launch, the tile says **Open requested** and ignores repeat presses until you leave the screen. This does not prove the app finished switching or started the session runtime, and it never approves a host prompt.
 
 ## Subagents
 

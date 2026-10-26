@@ -1,10 +1,10 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-export function bridgeDirectory(): string {
-  const base = process.platform === "win32"
-    ? process.env.LOCALAPPDATA ?? join(homedir(), "AppData", "Local")
-    : join(homedir(), ".local", "share");
+export function bridgeDirectory(platform: NodeJS.Platform = process.platform, env: NodeJS.ProcessEnv = process.env, home = homedir()): string {
+  const base = platform === "win32" ? env.LOCALAPPDATA ?? join(home, "AppData", "Local")
+    : platform === "darwin" ? join(home, "Library", "Application Support")
+      : join(home, ".local", "share");
   return join(base, "CopilotStreamDeck", "bridges");
 }
 

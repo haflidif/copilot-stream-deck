@@ -25,8 +25,6 @@ The bridge is a Copilot extension that gives the deck live model, context and MC
 
 The bridge is installed from source. You need Git and Node.js 20.19 or later. Check out the tag matching your installed plugin release so the plugin and bridge use the same version. The commands below are for v0.3.0 and work in PowerShell on Windows or a terminal on macOS.
 
-Until v0.3.0 is published, its tag is not available. These instructions describe the upcoming stable release.
-
 ```sh
 git clone https://github.com/haflidif/copilot-stream-deck.git
 cd copilot-stream-deck

@@ -252,7 +252,7 @@ class DashboardAction extends SingletonAction {
     const state = this.bridgeState.get(board);
     if (!state) return;
     const feed = this.companion.feed;
-    const snapshot = feed ? withNavFeed(state.snapshot, feed, this.companion.state?.activeSessionId) : state.snapshot;
+    const snapshot = feed ? withNavFeed(state.snapshot, feed) : state.snapshot;
     board.snapshot = snapshot;
     board.error = snapshot ? (snapshot.errors.length ? snapshot.errors.join("\n") : undefined) : state.error;
   }

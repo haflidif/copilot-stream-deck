@@ -1,6 +1,6 @@
 # Copilot Companion for Stream Deck
 
-An unofficial, Windows-first companion for the GitHub Copilot desktop app, designed for the original 15-key Stream Deck and MK.2.
+An unofficial companion for the GitHub Copilot desktop app on Windows and macOS, designed for the original 15-key Stream Deck and MK.2.
 
 ![Tapping through Projects, a session and its subagents and back Home, where a finished session gets confetti](docs/images/navigation.gif)
 
@@ -31,7 +31,7 @@ See all [features](docs/features.md).
 
 For the optional session bridge, automatic profile switching and requirements, see [Install and set up](docs/install.md).
 
-**Coming in v0.3.0:** macOS support and Squad team detection. macOS testing is confirmed. See the [macOS setup requirements](docs/install.md#macos) and install the bridge from the tag matching your plugin release.
+**Windows and macOS:** see the [setup requirements](docs/install.md#requirements) and install the optional bridge from the tag matching your plugin release.
 
 ## Documentation
 

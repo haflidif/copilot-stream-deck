@@ -41,17 +41,29 @@ test("reads projects and sessions from the app sidebar", () => {
 test("the feed replaces bridge lists and stands in when no bridge answers", () => {
   const feed = parseNavFeed(message)!;
   const base = snapshot();
-  const merged = withNavFeed({ ...base, errors: ["sessions: Invalid session name", "mcp: down"] }, feed, "s-1");
+  const merged = withNavFeed({ ...base, errors: ["sessions: Invalid session name", "mcp: down"] }, feed);
   assert.equal(merged.sessions.length, 4);
   assert.deepEqual(merged.errors, ["mcp: down"]);
   assert.equal(merged.capabilities.sessions.available, true);
   assert.equal(merged.mcp, base.mcp);
 
-  const alone = withNavFeed(undefined, feed, "s-1");
-  assert.equal(alone.bridgeSessionId, "s-1");
+  const alone = withNavFeed(undefined, feed);
+  assert.equal(alone.bridgeSessionId, "");
   assert.equal(alone.capabilities.openSession.available, true);
   assert.equal(alone.capabilities.newChat.available, false);
   assert.deepEqual(alone.errors, []);
+});
+
+test("without any bridge, the session open in the app shows live values from the app", async () => {
+  const board = new Dashboard(async () => {}, async () => {});
+  board.snapshot = withNavFeed(undefined, parseNavFeed(message)!);
+  board.voice = { available: true, recording: false, mode: "toggle", activeSessionId: "s-1", active: {
+    id: "s-1", name: "Active session", source: "live", model: "GPT-6.1 Sol", reasoning: "Medium",
+    contextPercent: 42, contextLimit: 200_000, aiCredits: 3.5, creditsStatus: "complete",
+  } };
+  await board.press(6);
+  assert.deepEqual(board.tiles().slice(2, 7).map((tile) => tile.value), ["GPT-6.1 Sol", "Medium", "42%", "200K", "3.5"]);
+  assert.match(board.detailsMessage ?? "", /Live values from the Copilot app/);
 });
 
 test("MCP servers come from the app for its active session and toggle only while unchanged", async () => {
@@ -67,7 +79,7 @@ test("MCP servers come from the app for its active session and toggle only while
 
   const sent: unknown[] = [];
   const board = new Dashboard(async () => {}, async () => {}, async (request) => { sent.push(request); });
-  board.snapshot = withNavFeed(undefined, parseNavFeed(message)!, "s-1");
+  board.snapshot = withNavFeed(undefined, parseNavFeed(message)!);
   board.voice = { available: true, recording: false, mode: "toggle", activeSessionId: "s-1", mcp: [
     { id: "playwright", name: "Playwright", enabled: true, toggleable: true, pending: false },
     { id: "azure", name: "Azure", enabled: true, toggleable: false, pending: false },
@@ -89,7 +101,7 @@ test("MCP servers come from the app for its active session and toggle only while
 
 test("project colours from the app show as a strip on project and session tiles", async () => {
   const board = new Dashboard(async () => {}, async () => {});
-  board.snapshot = withNavFeed(snapshot(), parseNavFeed(message)!, "s-1");
+  board.snapshot = withNavFeed(snapshot(), parseNavFeed(message)!);
   await board.press(1);
   assert.deepEqual(board.tiles().slice(0, 2).map((tile) => tile.accent), ["blue", undefined]);
   await board.press(0);
@@ -102,7 +114,7 @@ test("project colours from the app show as a strip on project and session tiles"
 
 test("the home Pinned tile lists app pins alongside local favorites", async () => {
   const board = new Dashboard(async () => {}, async () => {});
-  board.snapshot = withNavFeed(snapshot(), parseNavFeed(message)!, "s-1");
+  board.snapshot = withNavFeed(snapshot(), parseNavFeed(message)!);
   board.favorites = new Set(["c-1"]);
   assert.equal(board.tiles()[3]?.label, "Pinned");
   await board.press(3);
@@ -113,7 +125,7 @@ test("the home Pinned tile lists app pins alongside local favorites", async () =
 test("sub-sessions from the bridge are grouped under their parent", async () => {
   const base = snapshot();
   base.sessions.push({ id: "sub", name: "Sub task", projectId: "p-1", kind: "session", activity: "attention", parentId: "s-1" });
-  const merged = withNavFeed(base, parseNavFeed(message)!, "s-1");
+  const merged = withNavFeed(base, parseNavFeed(message)!);
   assert.equal(merged.sessions.find((row) => row.id === "sub")?.parentId, "s-1");
   const board = new Dashboard(async () => {}, async () => {});
   board.snapshot = merged;

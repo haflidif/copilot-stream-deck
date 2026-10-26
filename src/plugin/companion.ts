@@ -107,7 +107,7 @@ export function parseNavFeed(message: unknown): NavFeed | undefined {
 }
 
 /** Lays the app's own sidebar over a bridge snapshot, or stands in for one when no bridge answers. */
-export function withNavFeed(snapshot: Snapshot | undefined, feed: NavFeed, activeSessionId?: string): Snapshot {
+export function withNavFeed(snapshot: Snapshot | undefined, feed: NavFeed): Snapshot {
   const on = { available: true };
   if (snapshot) {
     // The app's feed leaves out nested sessions, so the bridge's children are kept and the links carried over.
@@ -124,7 +124,8 @@ export function withNavFeed(snapshot: Snapshot | undefined, feed: NavFeed, activ
   }
   const off = { available: false, reason: "Load the Copilot Companion extension in a session for this" };
   return {
-    version: 1, capturedAt: new Date().toISOString(), bridgeSessionId: activeSessionId ?? "",
+    // No bridge answered, so no session is "own": the active session's values then come from the app feed.
+    version: 1, capturedAt: new Date().toISOString(), bridgeSessionId: "",
     projects: feed.projects, sessions: feed.sessions, mcp: [], errors: [],
     capabilities: { projects: on, sessions: on, openSession: on, newChat: off, details: off, mcp: off, voice: on, appPins: on, model: off, agents: off },
   };
