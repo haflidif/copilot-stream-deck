@@ -15,8 +15,11 @@ Browse your Copilot projects and sessions, see at a glance what is working and w
 - **Push to talk** and **answer questions** straight from the keys.
 - **Model, context ring and AI credits** for each session, with model switching and MCP toggles.
 - **Agents** page to watch a session's subagents work.
+- **Squad teams** get the Squad logo, with each agent shown by its team member name and role.
 
 ![Copilot moods: working, sleeping, needs you and context nearly full](docs/images/moods.png)
+
+![A Squad session: the Agents key with the Squad logo, the Agents list with team member names, and Neo's page with the Squad role](docs/images/squad.png)
 
 See all [features](docs/features.md).
 
@@ -27,6 +30,8 @@ See all [features](docs/features.md).
 3. Accept the bundled profile and select **Copilot Companion** in Stream Deck.
 
 For the optional session bridge, automatic profile switching and requirements, see [Install and set up](docs/install.md).
+
+**Coming in v0.3.0:** macOS support and Squad team detection. macOS testing is confirmed. See the [macOS setup requirements](docs/install.md#macos) and install the bridge from the tag matching your plugin release.
 
 ## Documentation
 
