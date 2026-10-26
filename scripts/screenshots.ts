@@ -68,3 +68,24 @@ await shot("moods", moods.svg);
 const finished: Tile = { label: "Finished", icon: "check", activity: "ready", flash: true };
 const confetti = strip([0.05, 0.13, 0.4, 0.5, 0.75, 0.85].map((p, i) => [`${(p * Dashboard.confettiMs / 1000).toFixed(1)} s`, { ...finished, confetti: p }, i] as [string, Tile, number]));
 await shot("confetti", confetti.svg);
+
+// Squad team: the session's Agents key, the Agents list with roster names, and one member's page.
+const squad = new Dashboard(async () => {}, async () => {});
+squad.now = () => now;
+squad.snapshot = { ...demo(), squad: true, agents: [
+  { id: "q1", name: "neo-impl", member: "Neo", role: "Lead", agentType: "general-purpose", status: "running", startedAt: "2026-10-21T07:00:00Z", activeTimeMs: 162000, model: "claude-opus-5.5" },
+  { id: "q2", name: "trinity-ui", member: "Trinity", role: "Frontend Dev", agentType: "general-purpose", status: "running", startedAt: "2026-10-21T07:00:10Z", activeTimeMs: 96000, model: "claude-sonnet-5" },
+  { id: "q3", name: "morpheus-review", member: "Morpheus", role: "Reviewer", agentType: "code-review", status: "idle", startedAt: "2026-10-21T07:00:20Z", activeTimeMs: 71000, model: "gpt-5.6-sol" },
+  { id: "q4", name: "oracle-docs", member: "Oracle", role: "Docs", agentType: "task", status: "completed", startedAt: "2026-10-21T07:00:30Z", completedAt: "2026-10-21T07:03:00Z", activeTimeMs: 150000, model: "claude-haiku-5.5" },
+] };
+const squadViews: [string, Dashboard["view"]][] = [
+  ["Session", { type: "session", id: "s1", page: 0 }],
+  ["Agents", { type: "agents", page: 0, sessionId: "s1" }],
+  ["Neo", { type: "agent", page: 0, sessionId: "s1", agentId: "q1" }],
+];
+const squadDecks = squadViews.map(([label, view], i) => {
+  squad.view = view;
+  for (let n = 0; n < 40; n++) squad.tiles();
+  return caption(34 + i * (deckWidth + 40), 44, label) + deck(squad.tiles(), 6, 30 + i * (deckWidth + 40), 64, undefined, `d${i}-`);
+}).join("");
+await shot("squad", page(deckWidth * 3 + 140, deckHeight + 100, squadDecks));

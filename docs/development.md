@@ -53,7 +53,7 @@ You don't need a Stream Deck to see the tiles. These commands use the real rende
 
 Tile icons come from [GitHub Primer Octicons](https://github.com/primer/octicons). `npm run icons` regenerates `src/plugin/icons.ts` with only the icons the deck uses. Icons and values use GitHub Primer colours, and the Copilot icon uses a purple to blue gradient. Status colours (attention, error, finished) and project colours always take priority.
 
-The provider logos on the Model key are kept in `src/plugin/brands.ts`. Credits and trademarks are listed in [NOTICE.md](../NOTICE.md).
+The provider logos on the Model key are kept in `src/plugin/brands.ts`, and the Squad logo on the Agents key in `src/plugin/squad-logo.ts`. Credits and trademarks are listed in [NOTICE.md](../NOTICE.md).
 
 ## Release
 
@@ -64,5 +64,7 @@ npm run release
 This builds without the source map, generates and bundles the 15-key profile, runs the Elgato validator and writes `dist\com.haflidif.copilot.streamDeckPlugin`. It also writes `dist\copilot-companion.streamDeckProfile` for people who already have the plugin installed.
 
 Before running it, bump `Version` in `com.haflidif.copilot.sdPlugin/manifest.json` (four numbers, for example `0.3.0.0`) and `version` in `package.json`. Then attach both files to a GitHub Release.
+
+Keep bridge installation examples aligned with the release tag, not a temporary feature branch. Check platform-specific paths and remove pre-release instructions when publishing a stable release. Credit community testing in the release notes, including **@janegilring** for confirming macOS installation, bridge discovery, live values, dictation and status changes for v0.3.0 in [#1](https://github.com/haflidif/copilot-stream-deck/issues/1).
 
 The packaging follows Elgato's [bundled profiles guide](https://docs.elgato.com/streamdeck/sdk/guides/profiles/).

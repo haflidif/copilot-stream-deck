@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Windows 10 or later, or macOS 13 or later. macOS support is experimental and not yet confirmed on a Mac, see [macOS](#macos).
+- Windows 10 or later, or macOS 13 or later with the macOS build (see [macOS](#macos)).
 - Stream Deck software 6.6 or later.
 - The original Stream Deck or MK.2 with 15 keys. Other layouts are not supported yet.
 - A GitHub Copilot desktop app build that supports `@github/copilot-sdk/extension`, session RPC and app tool execution. This is an experimental, version-dependent integration.
@@ -23,29 +23,55 @@ The keys get their content from their physical position, so leave custom images 
 
 The bridge is a Copilot extension that gives the deck live model, context and MCP controls for a session, sub-sessions, model switching and the Agents page. Without it, navigation and status still work through the Companion device integration.
 
-The bridge is installed from source. You need Node.js 20.19 or later.
+The bridge is installed from source. You need Git and Node.js 20.19 or later. Check out the tag matching your installed plugin release so the plugin and bridge use the same version. The commands below are for v0.3.0 and work in PowerShell on Windows or a terminal on macOS.
 
-```powershell
+```sh
 git clone https://github.com/haflidif/copilot-stream-deck.git
 cd copilot-stream-deck
+git checkout v0.3.0
 npm ci
 npm run extension:install
 ```
 
-This builds the bridge and copies it to `~/.copilot/extensions/copilot-stream-deck/` (`%USERPROFILE%\.copilot\extensions\copilot-stream-deck\` on Windows), where Copilot runtimes can find it. Sessions that are already running need an extension reload to pick it up. Run the install command again after updating.
+This builds the bridge and copies it to `%USERPROFILE%\.copilot\extensions\copilot-stream-deck\` on Windows or `~/.copilot/extensions/copilot-stream-deck/` on macOS, where Copilot runtimes can find it. Sessions that are already running need an extension reload to pick it up.
+
+To update an existing installation, fetch tags, check out the tag matching the new plugin release, and reinstall the bridge. For example, when updating to v0.3.0:
+
+```sh
+git fetch origin --tags
+git checkout v0.3.0
+npm ci
+npm run extension:install
+```
+
+Reload extensions or restart open Copilot sessions after updating. Release tags remain available after feature branches are deleted. Use `main` only when intentionally testing unreleased development changes.
 
 At least one Copilot runtime must be running with the extension for the deck to connect to a bridge. [How it works](how-it-works.md) explains which bridge the deck picks and what happens when a session's runtime stops.
 
 ## macOS
 
-macOS support is experimental. The code paths are in place, but nobody has run it on a Mac yet, so treat it as a test build until this is confirmed in [#1](https://github.com/haflidif/copilot-stream-deck/issues/1). What differs from Windows:
+macOS support starts with v0.3.0. Install the plugin and matching bridge from that release using the instructions above. v0.2.0 does not include macOS support.
 
-- **Open in app** opens the session link with `open` instead of the Windows URL handler.
-- Bridge pairing files are kept in `~/Library/Application Support/CopilotStreamDeck/bridges`.
-- The bridge extension and session history are read from `~/.copilot`, the same as on Windows.
-- Labels use Segoe UI on Windows and fall back to Arial on a Mac, so text can look slightly different.
+Use macOS 13 or later, Stream Deck software 6.6 or later, and a supported 15-key Stream Deck. In the Copilot desktop app, enable **Companion device integration** under **Settings > Experiments**. Hold to talk also needs the app's voice model installed.
 
-Not yet known: whether the Copilot app on macOS offers the same **Companion device integration** experiment and handles `ghapp://` session links. If something does not work, please comment on [#1](https://github.com/haflidif/copilot-stream-deck/issues/1).
+### Session bridge
+
+The bridge is optional, but required for the Agents page and Squad detection, as well as bridge-backed model, reasoning and MCP controls. Live values for the session open in the app can come through the Companion device integration without it.
+
+Use the same release tag on Windows and macOS. No separate macOS branch is needed.
+
+### Confirmed on a Mac
+
+[Jan Egil Ring (@janegilring)](https://github.com/haflidif/copilot-stream-deck/issues/1#issuecomment-6357065502) tested the macOS beta on a Mac mini M4 and confirmed installation and profile selection, opening the correct session, live model/reasoning/context/credits values, bridge discovery and the Agents count, hold-to-talk dictation, and the Working, Needs you and Finished indicators, including confetti. This confirms the tested setup, not every Mac or Copilot app version.
+
+### Troubleshoot macOS
+
+- **Agents shows Unavailable:** check that the bridge matches the plugin release and is loaded in the selected session. The v0.2.0 bridge writes pairing files to a different folder on macOS; rebuild from v0.3.0 or later. **0** means the bridge answered with no subagents, not a connection failure.
+- **Live values are unavailable without a bridge:** use v0.3.0 or later and keep the target session open in the app with Companion device integration enabled. An early macOS beta had a bug that hid those values.
+- **The bridge disappears after inactivity:** the session's runtime may have stopped. Refreshing the deck or reinstalling the extension does not wake it; see [Bridges and runtimes](how-it-works.md#bridges-and-runtimes).
+- **Need diagnostic logs:** look in `~/Library/Application Support/com.elgato.StreamDeck/Plugins/com.haflidif.copilot.sdPlugin/logs`. Review logs before sharing because they can contain project and session names. Never share pairing files, which contain bearer tokens.
+
+The macOS build stores pairing files in `~/Library/Application Support/CopilotStreamDeck/bridges`, keeps the extension and session history under `~/.copilot`, and opens session links with `/usr/bin/open`. Labels fall back from Segoe UI to Arial, so text may look slightly different from Windows.
 
 ## Tile settings
 

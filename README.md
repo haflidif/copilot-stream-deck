@@ -1,6 +1,6 @@
 # Copilot Companion for Stream Deck
 
-An unofficial companion for the GitHub Copilot desktop app on Windows, with [experimental macOS support](docs/install.md#macos), designed for the original 15-key Stream Deck and MK.2.
+An unofficial companion for the GitHub Copilot desktop app on Windows and macOS, designed for the original 15-key Stream Deck and MK.2.
 
 ![Tapping through Projects, a session and its subagents and back Home, where a finished session gets confetti](docs/images/navigation.gif)
 
@@ -15,8 +15,11 @@ Browse your Copilot projects and sessions, see at a glance what is working and w
 - **Push to talk** and **answer questions** straight from the keys.
 - **Model, context ring and AI credits** for each session, with model switching and MCP toggles.
 - **Agents** page to watch a session's subagents work.
+- **Squad teams** get the Squad logo, with each agent shown by its team member name and role.
 
 ![Copilot moods: working, sleeping, needs you and context nearly full](docs/images/moods.png)
+
+![A Squad session: the Agents key with the Squad logo, the Agents list with team member names, and Neo's page with the Squad role](docs/images/squad.png)
 
 See all [features](docs/features.md).
 
@@ -27,6 +30,8 @@ See all [features](docs/features.md).
 3. Accept the bundled profile and select **Copilot Companion** in Stream Deck.
 
 For the optional session bridge, automatic profile switching and requirements, see [Install and set up](docs/install.md).
+
+**Windows and macOS:** see the [setup requirements](docs/install.md#requirements) and install the optional bridge from the tag matching your plugin release.
 
 ## Documentation
 
