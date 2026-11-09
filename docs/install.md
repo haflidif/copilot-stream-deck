@@ -23,23 +23,23 @@ The keys get their content from their physical position, so leave custom images 
 
 The bridge is a Copilot extension that gives the deck live model, context and MCP controls for a session, sub-sessions, model switching and the Agents page. Without it, navigation and status still work through the Companion device integration.
 
-The bridge is installed from source. You need Git and Node.js 20.19 or later. Check out the tag matching your installed plugin release so the plugin and bridge use the same version. The commands below are for v0.3.0 and work in PowerShell on Windows or a terminal on macOS.
+The bridge is installed from source. You need Git and Node.js 20.19 or later. Check out the tag matching your installed plugin release so the plugin and bridge use the same version. The commands below are for v0.3.1 and work in PowerShell on Windows or a terminal on macOS.
 
 ```sh
 git clone https://github.com/haflidif/copilot-stream-deck.git
 cd copilot-stream-deck
-git checkout v0.3.0
+git checkout v0.3.1
 npm ci
 npm run extension:install
 ```
 
 This builds the bridge and copies it to `%USERPROFILE%\.copilot\extensions\copilot-stream-deck\` on Windows or `~/.copilot/extensions/copilot-stream-deck/` on macOS, where Copilot runtimes can find it. Sessions that are already running need an extension reload to pick it up.
 
-To update an existing installation, fetch tags, check out the tag matching the new plugin release, and reinstall the bridge. For example, when updating to v0.3.0:
+To update an existing installation, fetch tags, check out the tag matching the new plugin release, and reinstall the bridge. For example, when updating to v0.3.1:
 
 ```sh
 git fetch origin --tags
-git checkout v0.3.0
+git checkout v0.3.1
 npm ci
 npm run extension:install
 ```
