@@ -7,7 +7,7 @@ import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { setTimeout as delay } from "node:timers/promises";
 import { WebSocketServer, type WebSocket } from "ws";
-import { startBridge } from "../src/bridge/server.js";
+import { startBridge, type Provider } from "../src/bridge/server.js";
 import type { Command } from "../src/shared/protocol.js";
 import { snapshot } from "./fixtures.js";
 
@@ -19,6 +19,8 @@ test("compiled plugin registers, renders 15 keys, navigates, animates and stops 
   const events = new EventEmitter();
   let otherHold: Promise<void> | undefined;
   let otherStarted = false;
+  let diagnostics: string[] = [];
+  let commandFailure = false;
   const otherBridge = await startBridge({
     snapshot: async () => {
       otherStarted = true;
@@ -33,10 +35,17 @@ test("compiled plugin registers, renders 15 keys, navigates, animates and stops 
     },
     command: async (command) => { otherCommands.push(command); },
   }, "other", directory);
-  const bridge = await startBridge({ snapshot: async () => ({
+  const provider: Provider = { snapshot: async () => ({
     ...snapshot(), agents: [{ id: "agent-1", name: "Attached worker", agentType: "task", status: "running", startedAt: "2026-10-20T22:00:00Z" }],
-    capabilities: { ...snapshot().capabilities, agents: { available: true } },
-  }), command: async (command) => { commands.push(command); } }, "attached", directory);
+    errors: diagnostics,
+    capabilities: { ...snapshot().capabilities, agents: { available: true },
+      mcp: diagnostics.length ? { available: false, reason: "unavailable" } : snapshot().capabilities.mcp },
+  }), command: async (command: Command) => {
+    if (commandFailure) throw new Error("Command refused");
+    commands.push(command);
+  } };
+  let bridge = await startBridge(provider, "attached", directory);
+  let bridgeRunning = true;
   const exited = spawn(process.execPath, ["-e", ""]);
   await once(exited, "exit");
   await delay(20);
@@ -152,6 +161,54 @@ test("compiled plugin registers, renders 15 keys, navigates, animates and stops 
     await waitFor(() => otherCommands.length === 1);
     assert.deepEqual(otherCommands, [{ type: "setMcp", name: "example", enabled: false }]);
     assert.equal(commands.length, 1);
+    send("keyDown", 12);
+    await waitFor(() => images("key-12").at(-1)?.includes(">Home<") === true);
+    send("propertyInspectorDidAppear", 12);
+    diagnostics = ["mcp: unavailable"];
+    const status = () => socket.send(JSON.stringify({
+      event: "sendToPlugin", action: "com.haflidif.copilot.dashboard", context: "key-12",
+      payload: { type: "status" },
+    }));
+    const statuses = () => messages.filter((row) => row.event === "sendToPropertyInspector")
+      .map((row) => row.payload as { connected: boolean; error: string });
+    status();
+    await waitFor(() => statuses().at(-1)?.error === "mcp: unavailable");
+    assert.equal(statuses().at(-1)?.connected, true);
+    await waitFor(() => images("key-4").at(-1)?.includes('opacity="0.42"') === true);
+    await delay(250);
+    assert.match(images("key-12").at(-1)!, />Home</);
+    commandFailure = true;
+    send("keyDown", 0);
+    await waitFor(() => images("key-0").at(-1)?.includes(">Confirm<") === true);
+    const alerts = messages.filter((row) => row.event === "showAlert").length;
+    send("keyDown", 0);
+    await waitFor(() => messages.filter((row) => row.event === "showAlert").length > alerts);
+    await waitFor(() => images("key-12").at(-1)?.includes("Error: see settings") === true);
+    await waitFor(() => statuses().at(-1)?.error.includes("Command refused") === true);
+    assert.match(statuses().at(-1)!.error, /mcp: unavailable/);
+    commandFailure = false;
+    send("keyDown", 12);
+    await waitFor(() => images("key-12").at(-1)?.includes(">Home<") === true);
+    const settingsCount = statuses().length;
+    socket.send(JSON.stringify({
+      event: "sendToPlugin", action: "com.haflidif.copilot.dashboard", context: "key-12",
+      payload: { type: "save", bridgeSessionId: "attached", reducedMotion: false },
+    }));
+    await waitFor(() => statuses().length > settingsCount && statuses().at(-1)?.error === "mcp: unavailable");
+    await bridge.close();
+    bridgeRunning = false;
+    status();
+    await waitFor(() => statuses().at(-1)?.connected === false);
+    await waitFor(() => images("key-12").at(-1)?.includes("Error: see settings") === true);
+    assert.equal(statuses().at(-1)?.error, "Copilot bridge: fetch failed");
+    status();
+    await waitFor(() => statuses().at(-1)?.error === "No matching Copilot bridge is running");
+    diagnostics = [];
+    bridge = await startBridge(provider, "attached", directory);
+    bridgeRunning = true;
+    status();
+    await waitFor(() => statuses().at(-1)?.connected === true && statuses().at(-1)?.error === "");
+    await waitFor(() => images("key-12").at(-1)?.includes(">Home<") === true);
     for (let i = 0; i < 15; i++) send("willDisappear", i);
     await delay(250);
     const count = messages.filter((row) => row.event === "setImage").length;
@@ -162,7 +219,7 @@ test("compiled plugin registers, renders 15 keys, navigates, animates and stops 
     await once(child, "exit");
     for (const client of server.clients) client.terminate();
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-    await bridge.close();
+    if (bridgeRunning) await bridge.close();
     await otherBridge.close();
     await rm(root, { recursive: true });
   }

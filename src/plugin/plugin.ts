@@ -254,7 +254,7 @@ class DashboardAction extends SingletonAction {
     const feed = this.companion.feed;
     const snapshot = feed ? withNavFeed(state.snapshot, feed) : state.snapshot;
     board.snapshot = snapshot;
-    board.error = snapshot ? (snapshot.errors.length ? snapshot.errors.join("\n") : undefined) : state.error;
+    board.error = snapshot ? undefined : state.error;
   }
 
   private report(error: unknown): void {
@@ -288,12 +288,14 @@ class DashboardAction extends SingletonAction {
 
   private async sendStatus(): Promise<void> {
     const board = this.boards.values().next().value;
+    const state = board ? this.bridgeState.get(board) : undefined;
+    const errors = [board?.error, state?.error, ...(board?.snapshot?.errors ?? [])];
     await streamDeck.ui.sendToPropertyInspector({
       settings: this.settings,
       connected: Boolean(board?.snapshot),
       bridgeSessionId: board?.snapshot?.bridgeSessionId ?? "",
       attachedSession: board?.snapshot?.details?.name ?? "",
-      error: board?.error ?? "",
+      error: [...new Set(errors.filter((error): error is string => Boolean(error)))].join("\n"),
       detailsMessage: board?.detailsMessage ?? "",
       projects: board?.snapshot?.projects.length ?? 0,
       sessions: board?.snapshot?.sessions.length ?? 0,
